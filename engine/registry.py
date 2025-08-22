@@ -8,5 +8,9 @@ class Detector(Protocol):
 
 class Analyzer(Protocol):
     id: str
-    consumes: list[str]  # e.g. ["service:http"]
+    consumes: list[str]
     async def run(self, ctx: RunContext, service: Service) -> List[Finding]: ...
+
+class Writer(Protocol):
+    id: str
+    def write(self, ctx: RunContext, services: List[Service], findings: List[Finding]) -> None: ...

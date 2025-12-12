@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Scans - Icebreaker{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Scan History</h1>
+            <p class="mt-2 text-sm text-gray-600">View and manage all security scans</p>
+        </div>
+        <a href="/scans/new" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+            <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            New Scan
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white shadow rounded-lg p-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label for="status-filter" class="block text-sm font-medium text-gray-700">Status</label>
+                <select id="status-filter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                    <option value="">All</option>
+                    <option value="running">Running</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                    <option value="pending">Pending</option>
+                </select>
+            </div>
+            <div class="md:col-span-2 flex items-end">
+                <button onclick="loadScans()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scans Table -->
+    <div class="bg-white shadow rounded-lg">
+        <div id="scans-table">
+            <!-- Will be populated by JavaScript -->
+            <div class="text-center py-12">
+                <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="mt-2 text-sm text-gray-500">Loading scans...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadScans() {
+        const statusFilter = document.getElementById('status-filter').value;
+        const url = `/api/scans${statusFilter ? `?status=${statusFilter}` : ''}`;
+
+        try {
+            const response = await fetch(url);
+            const scans = await response.json();
+
+            const table = document.getElementById('scans-table');
+
+            if (scans.length === 0) {
+                table.innerHTML = '<div class="text-center py-12"><p class="text-gray-500">No scans found. <a href="/scans/new" class="text-indigo-600 hover:text-indigo-500">Create your first scan</a></p></div>';
+                return;
+            }
+
+            table.innerHTML = `
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scan</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Targets</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Findings</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                            <th class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${scans.map(scan => `
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <a href="/scans/${scan.id}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                                        ${scan.name || scan.run_id}
+                                    </a>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    ${getStatusBadge(scan.status)}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    ${scan.target_count}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    ${scan.findings_count}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    ${new Date(scan.started_at).toLocaleString()}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    ${scan.duration_seconds ? formatDuration(scan.duration_seconds) : '-'}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="/scans/${scan.id}" class="text-indigo-600 hover:text-indigo-900">View</a>
+                                    <button onclick="deleteScan(${scan.id})" class="ml-3 text-red-600 hover:text-red-900">Delete</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } catch (error) {
+            console.error('Error loading scans:', error);
+            showToast('Error loading scans', 'error');
+        }
+    }
+
+    function getStatusBadge(status) {
+        const badges = {
+            'pending': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>',
+            'running': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Running</span>',
+            'completed': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Completed</span>',
+            'failed': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Failed</span>',
+            'cancelled': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Cancelled</span>'
+        };
+        return badges[status] || status;
+    }
+
+    function formatDuration(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${minutes}m ${secs}s`;
+    }
+
+    async function deleteScan(scanId) {
+        if (!confirm('Are you sure you want to delete this scan?')) return;
+
+        try {
+            const response = await fetch(`/api/scans/${scanId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                showToast('Scan deleted successfully', 'success');
+                loadScans();
+            } else {
+                showToast('Error deleting scan', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting scan:', error);
+            showToast('Error deleting scan', 'error');
+        }
+    }
+
+    // Load scans on page load
+    document.addEventListener('DOMContentLoaded', loadScans);
+
+    // Filter change
+    document.getElementById('status-filter').addEventListener('change', loadScans);
+
+    // Auto-refresh every 10 seconds
+    setInterval(loadScans, 10000);
+</script>
+{% endblock %}

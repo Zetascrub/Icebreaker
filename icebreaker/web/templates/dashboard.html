@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Icebreaker{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <p class="mt-2 text-sm text-gray-600">Overview of your security scans</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4" id="stats-cards">
+        <!-- Will be populated by JavaScript -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Active Scans</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900" id="active-scans">-</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Completed</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900" id="completed-scans">-</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Critical</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-red-600" id="critical-findings">-</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">High</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-orange-600" id="high-findings">-</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Scans -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Recent Scans</h3>
+        </div>
+        <div class="px-4 py-5 sm:p-6">
+            <div id="recent-scans-list">
+                <!-- Will be populated by JavaScript -->
+                <div class="text-center py-4">
+                    <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="mt-2 text-sm text-gray-500">Loading scans...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="flex space-x-4">
+        <a href="/scans/new" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            New Scan
+        </a>
+        <a href="/scans" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            View All Scans
+        </a>
+    </div>
+</div>
+
+<script>
+    // Load dashboard data
+    async function loadDashboard() {
+        try {
+            // Load recent scans
+            const scansResponse = await fetch('/api/scans?limit=5');
+            const scans = await scansResponse.json();
+
+            // Calculate stats
+            let activeScans = 0;
+            let completedScans = 0;
+            let criticalFindings = 0;
+            let highFindings = 0;
+
+            const allScansResponse = await fetch('/api/scans?limit=1000');
+            const allScans = await allScansResponse.json();
+
+            allScans.forEach(scan => {
+                if (scan.status === 'running' || scan.status === 'pending') activeScans++;
+                if (scan.status === 'completed') completedScans++;
+            });
+
+            // Get findings for completed scans
+            for (const scan of allScans.filter(s => s.status === 'completed').slice(0, 10)) {
+                const findingsResponse = await fetch(`/api/scans/${scan.id}/findings`);
+                const findings = await findingsResponse.json();
+                findings.forEach(f => {
+                    if (f.severity === 'CRITICAL') criticalFindings++;
+                    if (f.severity === 'HIGH') highFindings++;
+                });
+            }
+
+            // Update stats
+            document.getElementById('active-scans').textContent = activeScans;
+            document.getElementById('completed-scans').textContent = completedScans;
+            document.getElementById('critical-findings').textContent = criticalFindings;
+            document.getElementById('high-findings').textContent = highFindings;
+
+            // Render recent scans
+            const list = document.getElementById('recent-scans-list');
+            if (scans.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 text-center py-4">No scans yet. <a href="/scans/new" class="text-indigo-600 hover:text-indigo-500">Create your first scan</a></p>';
+            } else {
+                list.innerHTML = scans.map(scan => `
+                    <div class="border-b border-gray-200 last:border-0 py-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1">
+                                <a href="/scans/${scan.id}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                                    ${scan.name || scan.run_id}
+                                </a>
+                                <p class="text-sm text-gray-500 mt-1">
+                                    ${scan.target_count} targets • ${scan.findings_count} findings
+                                    ${scan.status === 'running' ? '<span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Running</span>' : ''}
+                                    ${scan.status === 'completed' ? '<span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Completed</span>' : ''}
+                                </p>
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                ${new Date(scan.started_at).toLocaleString()}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+            showToast('Error loading dashboard data', 'error');
+        }
+    }
+
+    // Load on page load
+    document.addEventListener('DOMContentLoaded', loadDashboard);
+
+    // Auto-refresh every 10 seconds
+    setInterval(loadDashboard, 10000);
+</script>
+{% endblock %}

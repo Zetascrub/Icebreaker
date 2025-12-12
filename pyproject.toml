@@ -14,6 +14,12 @@ dependencies = [
   "rich>=13.7",
   "httpx>=0.27",
   "pydantic>=2.7",
+  "fastapi>=0.109",
+  "uvicorn[standard]>=0.27",
+  "sqlalchemy>=2.0",
+  "jinja2>=3.1",
+  "python-multipart>=0.0.6",
+  "websockets>=12.0",
 ]
 
 [project.optional-dependencies]
@@ -25,13 +31,14 @@ dev = [
 
 [project.scripts]
 icebreaker = "icebreaker.cli:app"
+icebreaker-web = "icebreaker.api.app:main"
 
 [tool.ruff]
 line-length = 100
 select = ["E","F","I","B","W","UP"]
 
 [tool.setuptools]
-packages = ["icebreaker", "icebreaker.core", "icebreaker.engine", "icebreaker.writers", "icebreaker.analyzers", "icebreaker.detectors"]
+packages = ["icebreaker", "icebreaker.core", "icebreaker.engine", "icebreaker.writers", "icebreaker.analyzers", "icebreaker.detectors", "icebreaker.api", "icebreaker.api.routers", "icebreaker.db", "icebreaker.web"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,3 @@
+"""
+Icebreaker FastAPI web application.
+"""

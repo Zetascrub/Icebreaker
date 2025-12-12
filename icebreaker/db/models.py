@@ -122,5 +122,135 @@ class ScanProfile(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Relationships
+    schedules = relationship("ScanSchedule", back_populates="profile")
+
     def __repr__(self):
         return f"<ScanProfile(id={self.id}, name={self.name})>"
+
+
+class ScanSchedule(Base):
+    """Scheduled scan configuration."""
+    __tablename__ = "scan_schedules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+
+    # Schedule configuration
+    schedule_type = Column(String(20), nullable=False)  # cron, interval, once
+    schedule_value = Column(String(255), nullable=False)  # cron expression, interval, or datetime
+
+    # Scan configuration
+    targets = Column(JSON, nullable=False)  # List of targets
+    scan_profile_id = Column(Integer, ForeignKey("scan_profiles.id"), nullable=True)
+    scan_config = Column(JSON, default=dict)
+
+    # Status
+    enabled = Column(Boolean, default=True, index=True)
+    last_run = Column(DateTime, nullable=True)
+    next_run = Column(DateTime, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    profile = relationship("ScanProfile", back_populates="schedules")
+
+    def __repr__(self):
+        return f"<ScanSchedule(id={self.id}, name={self.name}, enabled={self.enabled})>"
+
+
+class NotificationConfig(Base):
+    """Notification configuration for scan results."""
+    __tablename__ = "notification_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    enabled = Column(Boolean, default=True, index=True)
+
+    # Notification type: email, slack, discord, teams, webhook
+    type = Column(String(50), nullable=False)
+
+    # Configuration (webhook URLs, email settings, etc.)
+    config = Column(JSON, nullable=False)
+
+    # Filtering
+    min_severity = Column(String(20), default="low")  # Minimum severity to notify
+    only_on_findings = Column(Boolean, default=False)  # Only notify if findings exist
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<NotificationConfig(id={self.id}, name={self.name}, type={self.type})>"
+
+
+class CVE(Base):
+    """CVE (Common Vulnerabilities and Exposures) information."""
+    __tablename__ = "cves"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cve_id = Column(String(50), unique=True, nullable=False, index=True)
+
+    # CVE details
+    description = Column(Text, nullable=True)
+    severity = Column(String(20), nullable=True, index=True)
+    cvss_score = Column(Float, nullable=True, index=True)
+    cvss_v3_vector = Column(String(255), nullable=True)
+    cvss_v2_vector = Column(String(255), nullable=True)
+
+    # Additional information
+    published_date = Column(DateTime, nullable=True)
+    last_modified = Column(DateTime, nullable=True)
+    has_known_exploit = Column(Boolean, default=False, index=True)
+    references = Column(JSON, default=list)
+
+    # Cache metadata
+    cached_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    finding_cves = relationship("FindingCVE", back_populates="cve")
+
+    def __repr__(self):
+        return f"<CVE(id={self.id}, cve_id={self.cve_id}, severity={self.severity})>"
+
+
+class FindingCVE(Base):
+    """Association between findings and CVEs."""
+    __tablename__ = "finding_cves"
+
+    id = Column(Integer, primary_key=True, index=True)
+    finding_id = Column(Integer, ForeignKey("findings.id", ondelete="CASCADE"), nullable=False, index=True)
+    cve_id = Column(Integer, ForeignKey("cves.id"), nullable=False, index=True)
+
+    # Relationships
+    finding = relationship("Finding")
+    cve = relationship("CVE", back_populates="finding_cves")
+
+    def __repr__(self):
+        return f"<FindingCVE(finding_id={self.finding_id}, cve_id={self.cve_id})>"
+
+
+class AnalyzerPlugin(Base):
+    """Registered analyzer plugins."""
+    __tablename__ = "analyzer_plugins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False, index=True)
+    version = Column(String(50), nullable=False)
+    description = Column(Text, nullable=True)
+    author = Column(String(255), nullable=True)
+
+    # Plugin metadata
+    enabled = Column(Boolean, default=True, index=True)
+    file_path = Column(String(500), nullable=True)
+
+    # Timestamps
+    registered_at = Column(DateTime, default=datetime.utcnow)
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<AnalyzerPlugin(id={self.id}, name={self.name}, version={self.version})>"

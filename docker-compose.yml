@@ -10,9 +10,8 @@ services:
       - "8000:8000"
     volumes:
       - ./runs:/app/runs
-      - ./icebreaker.db:/app/icebreaker.db
+      - ./data:/data
     environment:
-      - DATABASE_URL=sqlite:///./icebreaker.db
       # Optional: Set API key for authentication
       # - ICEBREAKER_API_KEY=your-secret-api-key-here
       # Optional: Set Ollama endpoint if using remote instance

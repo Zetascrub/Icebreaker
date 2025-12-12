@@ -8,7 +8,9 @@ from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
 
 # Database URL from environment or default to SQLite
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./icebreaker.db")
+# Use /data directory for database in Docker, current dir otherwise
+db_path = "/data/icebreaker.db" if os.path.exists("/data") else "./icebreaker.db"
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{db_path}")
 
 # Create engine
 engine = create_engine(

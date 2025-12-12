@@ -12,6 +12,7 @@ services:
       - ./runs:/app/runs
       - ./data:/data
     environment:
+      - PYTHONUNBUFFERED=1
       # Optional: Set API key for authentication
       # - ICEBREAKER_API_KEY=your-secret-api-key-here
       # Optional: Set Ollama endpoint if using remote instance

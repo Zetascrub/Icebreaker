@@ -254,3 +254,115 @@ class AnalyzerPlugin(Base):
 
     def __repr__(self):
         return f"<AnalyzerPlugin(id={self.id}, name={self.name}, version={self.version})>"
+
+
+class PortPreset(Base):
+    """Custom port preset definitions."""
+    __tablename__ = "port_presets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    ports = Column(String(2000), nullable=False)  # Comma-separated port list or ranges (e.g., "80,443,8000-8100")
+    is_default = Column(Boolean, default=False)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<PortPreset(id={self.id}, name={self.name})>"
+
+
+class AIServiceConfig(Base):
+    """AI service configuration (API keys, endpoints)."""
+    __tablename__ = "ai_service_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider = Column(String(50), unique=True, nullable=False, index=True)  # ollama, claude, openai
+    enabled = Column(Boolean, default=True)
+
+    # Configuration
+    api_key = Column(String(500), nullable=True)  # Encrypted in production
+    base_url = Column(String(500), nullable=True)  # For Ollama or custom endpoints
+    model = Column(String(100), nullable=True)  # Default model
+    config = Column(JSON, default=dict)  # Additional provider-specific settings
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<AIServiceConfig(id={self.id}, provider={self.provider})>"
+
+
+class ScanDefaults(Base):
+    """Default scan configuration settings."""
+    __tablename__ = "scan_defaults"
+
+    id = Column(Integer, primary_key=True, index=True)
+    setting_name = Column(String(100), unique=True, nullable=False, index=True)
+    setting_value = Column(String(500), nullable=False)
+    description = Column(Text, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ScanDefaults(setting_name={self.setting_name}, value={self.setting_value})>"
+
+
+class SMTPConfig(Base):
+    """SMTP configuration for email notifications."""
+    __tablename__ = "smtp_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    server = Column(String(255), nullable=False)
+    port = Column(Integer, default=587)
+    username = Column(String(255), nullable=True)
+    password = Column(String(500), nullable=True)  # Encrypted in production
+    from_email = Column(String(255), nullable=False)
+    use_tls = Column(Boolean, default=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<SMTPConfig(server={self.server}, port={self.port})>"
+
+
+class CVEConfig(Base):
+    """CVE/NVD database configuration."""
+    __tablename__ = "cve_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nvd_api_key = Column(String(500), nullable=True)  # NVD API key for higher rate limits
+    cache_duration_days = Column(Integer, default=7)
+    auto_lookup = Column(Boolean, default=True)  # Automatically lookup CVEs during scans
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<CVEConfig(auto_lookup={self.auto_lookup})>"
+
+
+class ScanRetentionPolicy(Base):
+    """Scan data retention policy."""
+    __tablename__ = "scan_retention_policy"
+
+    id = Column(Integer, primary_key=True, index=True)
+    retention_days = Column(Integer, default=90)  # Keep scans for 90 days by default
+    auto_cleanup = Column(Boolean, default=False)  # Automatically delete old scans
+    keep_critical_findings = Column(Boolean, default=True)  # Keep scans with critical findings
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ScanRetentionPolicy(retention_days={self.retention_days})>"
+

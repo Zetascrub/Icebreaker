@@ -189,6 +189,22 @@ async def get_scan_findings(scan_id: int, db: Session = Depends(get_db)):
     return findings
 
 
+@router.get("/scans/{scan_id}/services")
+async def get_scan_services(scan_id: int, db: Session = Depends(get_db)):
+    """
+    Get all services discovered in a scan.
+
+    Args:
+        scan_id: Scan ID
+        db: Database session
+
+    Returns:
+        List of services
+    """
+    services = db.query(Service).filter(Service.scan_id == scan_id).all()
+    return services
+
+
 @router.delete("/scans/{scan_id}")
 async def delete_scan(scan_id: int, db: Session = Depends(get_db)):
     """
@@ -558,6 +574,25 @@ async def execute_scan(scan_id: int):
         ]
         if _HAS_SSH:
             analyzers.append(SSHBanner())
+
+        # Add advanced analyzers
+        try:
+            from icebreaker.analyzers.ssl_cert import SSLCertAnalyzer
+            analyzers.append(SSLCertAnalyzer())
+        except Exception:
+            pass
+
+        try:
+            from icebreaker.analyzers.waf_cdn import WAFCDNDetector
+            analyzers.append(WAFCDNDetector())
+        except Exception:
+            pass
+
+        try:
+            from icebreaker.analyzers.api_discovery import APIDiscovery
+            analyzers.append(APIDiscovery())
+        except Exception:
+            pass
 
         # Set up writers
         writers = [JSONLWriter(), MarkdownWriter(), SARIFWriter(), HTMLWriter()]

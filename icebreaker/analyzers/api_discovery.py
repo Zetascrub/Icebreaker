@@ -6,6 +6,56 @@ import httpx
 import json
 from typing import Dict, Any, List, Set
 from urllib.parse import urljoin, urlparse
+from icebreaker.core.models import RunContext, Service, Finding
+
+
+class APIDiscovery:
+    """Icebreaker analyzer for API endpoint discovery."""
+
+    id = "api_discovery"
+    consumes = ["service:http", "service:https"]
+
+    async def run(self, ctx: RunContext, service: Service) -> List[Finding]:
+        """
+        Discover API endpoints for a service.
+
+        Args:
+            ctx: Run context
+            service: Service to analyze
+
+        Returns:
+            List of findings
+        """
+        findings = []
+        analyzer = APIDiscoveryAnalyzer()
+
+        try:
+            use_https = service.name == "https" or service.port == 443
+            result = analyzer.analyze(service.target, service.port, use_https)
+
+            for finding_dict in result.get("findings", []):
+                findings.append(Finding(
+                    id=f"api_discovery.{finding_dict.get('category', 'misc')}.{service.target}.{service.port}",
+                    title=finding_dict["title"],
+                    severity=finding_dict["severity"].upper(),
+                    target=service.target,
+                    port=service.port,
+                    tags=["api", finding_dict.get("category", "endpoints")],
+                    details={
+                        "description": finding_dict["description"],
+                        "endpoints": result.get("api_endpoints", []),
+                        "documentation": result.get("documentation_found", [])
+                    },
+                    recommendation=finding_dict.get("recommendation")
+                ))
+
+            analyzer.close()
+
+        except Exception as e:
+            # Silently skip if analysis fails
+            pass
+
+        return findings
 
 
 class APIDiscoveryAnalyzer:

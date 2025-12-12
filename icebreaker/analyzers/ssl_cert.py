@@ -7,6 +7,49 @@ import socket
 from datetime import datetime, timedelta
 from typing import Dict, Any, List
 import OpenSSL.crypto
+from icebreaker.core.models import RunContext, Service, Finding
+
+
+class SSLCertAnalyzer:
+    """Icebreaker analyzer for SSL/TLS certificates."""
+
+    id = "ssl_cert"
+    consumes = ["service:https", "service:ssl", "service:tls"]
+
+    async def run(self, ctx: RunContext, service: Service) -> List[Finding]:
+        """
+        Analyze SSL/TLS certificate for a service.
+
+        Args:
+            ctx: Run context
+            service: Service to analyze
+
+        Returns:
+            List of findings
+        """
+        findings = []
+        analyzer = SSLCertificateAnalyzer()
+
+        try:
+            result = analyzer.analyze(service.target, service.port)
+
+            for finding_dict in result.get("findings", []):
+                findings.append(Finding(
+                    id=f"ssl_cert.{finding_dict.get('category', 'misc')}.{service.target}.{service.port}",
+                    title=finding_dict["title"],
+                    severity=finding_dict["severity"].upper(),
+                    target=service.target,
+                    port=service.port,
+                    tags=["ssl", "tls", finding_dict.get("category", "cert")],
+                    details=result,
+                    recommendation=finding_dict.get("recommendation")
+                ))
+
+        except Exception as e:
+            # Silently skip if SSL analysis fails
+            pass
+
+        return findings
 
 
 class SSLCertificateAnalyzer:

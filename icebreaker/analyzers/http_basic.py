@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List
 from icebreaker.core.models import RunContext, Service, Finding
+from icebreaker.analyzers.template_lookup import get_template_id
 
 class HTTPBasic:
     id = "http_basic"
@@ -20,6 +21,7 @@ class HTTPBasic:
                 severity="INFO",
                 target=service.target, port=service.port,
                 tags=["http", "header"], details={"server": server},
+                template_id=get_template_id("ICEBREAKER-007")
             ))
         if service.name == "http" and not title:
             f.append(Finding(
@@ -56,6 +58,7 @@ class HTTPBasic:
                     severity="LOW",
                     target=service.target, port=service.port,
                     tags=["https", "hsts"],
+                    template_id=get_template_id("ICEBREAKER-002")
                 ))
 
         return f

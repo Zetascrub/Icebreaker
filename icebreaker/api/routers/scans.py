@@ -919,6 +919,7 @@ async def execute_scan(scan_id: int):
                 confidence=finding.confidence,
                 risk_score=finding.risk_score,
                 recommendation=finding.recommendation,
+                template_id=finding.template_id,
                 false_positive=False
             )
             db.add(db_finding)

@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from icebreaker.core.models import RunContext, Service, Finding
+from icebreaker.analyzers.template_lookup import get_template_id
 
 
 class TLSAnalyzer:
@@ -68,7 +69,8 @@ class TLSAnalyzer:
                         target=service.target,
                         port=service.port,
                         tags=["tls", "protocol"],
-                        details={"protocol": protocol}
+                        details={"protocol": protocol},
+                        template_id=get_template_id("ICEBREAKER-001")
                     ))
 
                 # Check certificate expiration
@@ -89,7 +91,8 @@ class TLSAnalyzer:
                                     target=service.target,
                                     port=service.port,
                                     tags=["tls", "certificate", "expired"],
-                                    details={"expired_on": not_after}
+                                    details={"expired_on": not_after},
+                                    template_id=get_template_id("ICEBREAKER-006")
                                 ))
                             elif (expiry - now).days < 30:
                                 findings.append(Finding(
@@ -99,7 +102,8 @@ class TLSAnalyzer:
                                     target=service.target,
                                     port=service.port,
                                     tags=["tls", "certificate", "expiring"],
-                                    details={"expires_on": not_after, "days_remaining": (expiry - now).days}
+                                    details={"expires_on": not_after, "days_remaining": (expiry - now).days},
+                                    template_id=get_template_id("ICEBREAKER-006")
                                 ))
                         except Exception:
                             pass
@@ -115,7 +119,8 @@ class TLSAnalyzer:
                             target=service.target,
                             port=service.port,
                             tags=["tls", "certificate", "self-signed"],
-                            details={"issuer": str(issuer)}
+                            details={"issuer": str(issuer)},
+                            template_id=get_template_id("ICEBREAKER-005")
                         ))
 
             # Clean up connection

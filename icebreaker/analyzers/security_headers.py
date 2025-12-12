@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List
 from icebreaker.core.models import RunContext, Service, Finding
+from icebreaker.analyzers.template_lookup import get_template_id
 
 
 class SecurityHeaders:
@@ -34,7 +35,8 @@ class SecurityHeaders:
                 target=service.target,
                 port=service.port,
                 tags=["http", "security-headers", "csp"],
-                details={"recommendation": "Add CSP header to prevent XSS attacks"}
+                details={"recommendation": "Add CSP header to prevent XSS attacks"},
+                template_id=get_template_id("ICEBREAKER-009")
             ))
 
         # Check for X-Frame-Options
@@ -47,7 +49,8 @@ class SecurityHeaders:
                 target=service.target,
                 port=service.port,
                 tags=["http", "security-headers", "clickjacking"],
-                details={"recommendation": "Add 'X-Frame-Options: DENY' or 'SAMEORIGIN'"}
+                details={"recommendation": "Add 'X-Frame-Options: DENY' or 'SAMEORIGIN'"},
+                template_id=get_template_id("ICEBREAKER-003")
             ))
 
         # Check for X-Content-Type-Options
@@ -60,7 +63,8 @@ class SecurityHeaders:
                 target=service.target,
                 port=service.port,
                 tags=["http", "security-headers", "mime-sniffing"],
-                details={"recommendation": "Add 'X-Content-Type-Options: nosniff'"}
+                details={"recommendation": "Add 'X-Content-Type-Options: nosniff'"},
+                template_id=get_template_id("ICEBREAKER-004")
             ))
 
         # Check for Referrer-Policy

@@ -55,3 +55,4 @@ class Finding(BaseModel):
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)  # 0.0 to 1.0
     risk_score: Optional[float] = Field(default=None, ge=0.0, le=10.0)  # 0.0 to 10.0
     recommendation: Optional[str] = None
+    template_id: Optional[int] = None  # Link to FindingTemplate in database

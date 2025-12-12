@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}New Scan - Icebreaker{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Create New Scan</h1>
+        <p class="mt-2 text-sm text-gray-600">Configure and launch a security scan</p>
+    </div>
+
+    <!-- Scan Form -->
+    <form id="scan-form" class="space-y-6">
+        <!-- Scan Name -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-700">Scan Name (optional)</label>
+                <input type="text" id="name" name="name" placeholder="Production Scan"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                <p class="mt-1 text-sm text-gray-500">Give this scan a memorable name</p>
+            </div>
+        </div>
+
+        <!-- Targets -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Targets</h3>
+
+            <div>
+                <label for="targets" class="block text-sm font-medium text-gray-700">Target Hosts</label>
+                <textarea id="targets" name="targets" rows="4" required
+                    placeholder="example.com&#10;192.168.1.1&#10;10.0.0.0/24"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"></textarea>
+                <p class="mt-1 text-sm text-gray-500">One host, IP, or CIDR range per line</p>
+            </div>
+        </div>
+
+        <!-- Scan Configuration -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Configuration</h3>
+
+            <div class="space-y-4">
+                <div>
+                    <label for="preset" class="block text-sm font-medium text-gray-700">Scan Preset</label>
+                    <select id="preset" name="preset"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                        <option value="quick">Quick (ports 22,80,443)</option>
+                        <option value="standard">Standard (top 100 ports)</option>
+                        <option value="thorough">Thorough (top 1000 ports)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="ports" class="block text-sm font-medium text-gray-700">Custom Ports (optional)</label>
+                    <input type="text" id="ports" name="ports" placeholder="80,443,8080 or 8000-8100"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                    <p class="mt-1 text-sm text-gray-500">Leave blank to use preset ports</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="host_conc" class="block text-sm font-medium text-gray-700">Host Concurrency</label>
+                        <input type="number" id="host_conc" name="host_conc" value="128" min="1" max="1000"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                    </div>
+                    <div>
+                        <label for="svc_conc" class="block text-sm font-medium text-gray-700">Service Concurrency</label>
+                        <input type="number" id="svc_conc" name="svc_conc" value="256" min="1" max="2000"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="timeout" class="block text-sm font-medium text-gray-700">Timeout (seconds)</label>
+                    <input type="number" id="timeout" name="timeout" value="1.5" min="0.1" step="0.1" max="30"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" id="insecure" name="insecure"
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="insecure" class="ml-2 block text-sm text-gray-900">
+                        Disable SSL verification (insecure)
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Analysis -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">AI Analysis</h3>
+
+            <div class="space-y-4">
+                <div>
+                    <label for="ai_provider" class="block text-sm font-medium text-gray-700">AI Provider</label>
+                    <select id="ai_provider" name="ai_provider"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                        <option value="">None</option>
+                        <option value="ollama">Ollama (local)</option>
+                        <option value="anthropic">Anthropic Claude</option>
+                        <option value="openai">OpenAI</option>
+                    </select>
+                </div>
+
+                <div id="ai_options" class="hidden space-y-4">
+                    <div>
+                        <label for="ai_model" class="block text-sm font-medium text-gray-700">Model</label>
+                        <input type="text" id="ai_model" name="ai_model" placeholder="llama3.2"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                    </div>
+
+                    <div id="ai_base_url_container" class="hidden">
+                        <label for="ai_base_url" class="block text-sm font-medium text-gray-700">Base URL</label>
+                        <input type="text" id="ai_base_url" name="ai_base_url" placeholder="http://localhost:11434"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end space-x-3">
+            <a href="/" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Cancel
+            </a>
+            <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Start Scan
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Toggle AI options
+    document.getElementById('ai_provider').addEventListener('change', function() {
+        const aiOptions = document.getElementById('ai_options');
+        const baseUrlContainer = document.getElementById('ai_base_url_container');
+
+        if (this.value) {
+            aiOptions.classList.remove('hidden');
+            if (this.value === 'ollama') {
+                baseUrlContainer.classList.remove('hidden');
+            } else {
+                baseUrlContainer.classList.add('hidden');
+            }
+        } else {
+            aiOptions.classList.add('hidden');
+        }
+    });
+
+    // Handle form submission
+    document.getElementById('scan-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(e.target);
+        const targets = formData.get('targets').split('\n').filter(t => t.trim());
+
+        if (targets.length === 0) {
+            showToast('Please enter at least one target', 'error');
+            return;
+        }
+
+        const scanData = {
+            name: formData.get('name') || null,
+            targets: targets,
+            preset: formData.get('preset'),
+            ports: formData.get('ports') || null,
+            host_conc: parseInt(formData.get('host_conc')),
+            svc_conc: parseInt(formData.get('svc_conc')),
+            timeout: parseFloat(formData.get('timeout')),
+            insecure: formData.get('insecure') === 'on',
+            ai_provider: formData.get('ai_provider') || null,
+            ai_model: formData.get('ai_model') || null,
+            ai_base_url: formData.get('ai_base_url') || null
+        };
+
+        try {
+            const response = await fetch('/api/scans', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(scanData)
+            });
+
+            if (response.ok) {
+                const scan = await response.json();
+                showToast('Scan created successfully!', 'success');
+                setTimeout(() => {
+                    window.location.href = `/scans/${scan.id}`;
+                }, 1000);
+            } else {
+                const error = await response.json();
+                showToast(`Error: ${error.detail || 'Failed to create scan'}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error creating scan:', error);
+            showToast('Error creating scan', 'error');
+        }
+    });
+</script>
+{% endblock %}

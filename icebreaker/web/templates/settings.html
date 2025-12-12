@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Icebreaker{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <!-- Page Header -->
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900">Settings</h1>
+        <p class="mt-2 text-sm text-gray-600">Manage scan profiles and configurations</p>
+    </div>
+
+    <!-- Scan Profiles -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Scan Profiles</h3>
+        <div id="profiles-list">
+            <div class="text-center py-4">
+                <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="mt-2 text-sm text-gray-500">Loading profiles...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- About -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">About Icebreaker</h3>
+        <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+            <div>
+                <dt class="text-sm font-medium text-gray-500">Version</dt>
+                <dd class="mt-1 text-sm text-gray-900">0.2.0</dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">API</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                    <a href="/docs" target="_blank" class="text-indigo-600 hover:text-indigo-500">View Documentation</a>
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">CLI Tool</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                    <code class="px-2 py-1 bg-gray-100 rounded">icebreaker --help</code>
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">Database</dt>
+                <dd class="mt-1 text-sm text-gray-900">icebreaker.db</dd>
+            </div>
+        </dl>
+    </div>
+</div>
+
+<script>
+    async function loadProfiles() {
+        try {
+            const response = await fetch('/api/profiles');
+            const profiles = await response.json();
+
+            const list = document.getElementById('profiles-list');
+            if (profiles.length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-500 py-4">No saved profiles yet.</p>';
+                return;
+            }
+
+            list.innerHTML = profiles.map(profile => `
+                <div class="border border-gray-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h4 class="text-sm font-medium text-gray-900">${profile.name}</h4>
+                            <p class="mt-1 text-sm text-gray-500">${profile.description || 'No description'}</p>
+                            ${profile.is_default ? '<span class="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Default</span>' : ''}
+                        </div>
+                        <button onclick="deleteProfile(${profile.id})" class="text-red-600 hover:text-red-700 text-sm">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading profiles:', error);
+            showToast('Error loading profiles', 'error');
+        }
+    }
+
+    async function deleteProfile(profileId) {
+        if (!confirm('Are you sure you want to delete this profile?')) return;
+
+        try {
+            const response = await fetch(`/api/profiles/${profileId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                showToast('Profile deleted successfully', 'success');
+                loadProfiles();
+            } else {
+                showToast('Error deleting profile', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting profile:', error);
+            showToast('Error deleting profile', 'error');
+        }
+    }
+
+    // Load profiles on page load
+    document.addEventListener('DOMContentLoaded', loadProfiles);
+</script>
+{% endblock %}

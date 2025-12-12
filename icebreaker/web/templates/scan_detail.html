@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Scan Details - Icebreaker{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Back Button -->
+    <div>
+        <a href="/scans" class="text-sm text-gray-500 hover:text-gray-700">
+            ← Back to Scans
+        </a>
+    </div>
+
+    <!-- Scan Header -->
+    <div id="scan-header" class="bg-white shadow rounded-lg p-6">
+        <div class="animate-pulse">
+            <div class="h-8 bg-gray-200 rounded w-1/3 mb-2"></div>
+            <div class="h-4 bg-gray-200 rounded w-1/4"></div>
+        </div>
+    </div>
+
+    <!-- Scan Stats -->
+    <div id="scan-stats" class="grid grid-cols-1 gap-5 sm:grid-cols-4">
+        <!-- Will be populated by JavaScript -->
+    </div>
+
+    <!-- Tabs -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex" aria-label="Tabs">
+                <button onclick="showTab('findings')" id="tab-findings" class="tab-button border-b-2 border-indigo-500 text-indigo-600 w-1/3 py-4 px-1 text-center font-medium text-sm">
+                    Findings
+                </button>
+                <button onclick="showTab('services')" id="tab-services" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 w-1/3 py-4 px-1 text-center font-medium text-sm">
+                    Services
+                </button>
+                <button onclick="showTab('config')" id="tab-config" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 w-1/3 py-4 px-1 text-center font-medium text-sm">
+                    Configuration
+                </button>
+            </nav>
+        </div>
+
+        <div class="p-6">
+            <!-- Findings Tab -->
+            <div id="findings-content" class="tab-content">
+                <div id="findings-list">
+                    <div class="text-center py-8">
+                        <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-500">Loading findings...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Services Tab -->
+            <div id="services-content" class="tab-content hidden">
+                <div id="services-list">
+                    <p class="text-gray-500">Loading services...</p>
+                </div>
+            </div>
+
+            <!-- Configuration Tab -->
+            <div id="config-content" class="tab-content hidden">
+                <div id="config-details">
+                    <p class="text-gray-500">Loading configuration...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const scanId = {{ scan_id }};
+    let currentScan = null;
+
+    async function loadScanDetails() {
+        try {
+            const response = await fetch(`/api/scans/${scanId}`);
+            const scan = await response.json();
+            currentScan = scan;
+
+            // Update header
+            document.getElementById('scan-header').innerHTML = `
+                <h1 class="text-3xl font-bold text-gray-900">${scan.name || scan.run_id}</h1>
+                <div class="mt-2 flex items-center space-x-4">
+                    ${getStatusBadge(scan.status)}
+                    <span class="text-sm text-gray-500">Started: ${new Date(scan.started_at).toLocaleString()}</span>
+                    ${scan.duration_seconds ? `<span class="text-sm text-gray-500">Duration: ${formatDuration(scan.duration_seconds)}</span>` : ''}
+                </div>
+            `;
+
+            // Update stats
+            document.getElementById('scan-stats').innerHTML = `
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <dt class="text-sm font-medium text-gray-500 truncate">Targets</dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900">${scan.target_count}</dd>
+                    </div>
+                </div>
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <dt class="text-sm font-medium text-gray-500 truncate">Services</dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900">${scan.services_found}</dd>
+                    </div>
+                </div>
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <dt class="text-sm font-medium text-gray-500 truncate">Findings</dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900">${scan.findings_count}</dd>
+                    </div>
+                </div>
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <dt class="text-sm font-medium text-gray-500 truncate">Preset</dt>
+                        <dd class="mt-1 text-lg font-semibold text-gray-900">${scan.preset}</dd>
+                    </div>
+                </div>
+            `;
+
+            // Load findings
+            await loadFindings();
+
+            // Load config
+            loadConfiguration();
+
+        } catch (error) {
+            console.error('Error loading scan:', error);
+            showToast('Error loading scan details', 'error');
+        }
+    }
+
+    async function loadFindings() {
+        try {
+            const response = await fetch(`/api/scans/${scanId}/findings`);
+            const findings = await response.json();
+
+            const list = document.getElementById('findings-list');
+            if (findings.length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-500 py-8">No findings detected</p>';
+                return;
+            }
+
+            list.innerHTML = findings.map(finding => `
+                <div class="border-b border-gray-200 last:border-0 py-4">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center">
+                                <span class="severity-${finding.severity.toLowerCase()} font-semibold text-sm uppercase">${finding.severity}</span>
+                                <span class="ml-2 text-sm font-medium text-gray-900">${finding.title}</span>
+                            </div>
+                            <div class="mt-1 text-sm text-gray-500">
+                                Target: ${finding.target}${finding.port ? `:${finding.port}` : ''}
+                            </div>
+                            <div class="mt-1 text-sm text-gray-600">
+                                Risk Score: <span class="font-medium">${finding.risk_score ? finding.risk_score.toFixed(1) : 'N/A'}</span>
+                                • Confidence: <span class="font-medium">${(finding.confidence * 100).toFixed(0)}%</span>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <button onclick="toggleFalsePositive(${finding.id})" class="text-sm ${finding.false_positive ? 'text-green-600 hover:text-green-700' : 'text-gray-500 hover:text-gray-700'}">
+                                ${finding.false_positive ? '✓ False Positive' : 'Mark False Positive'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error('Error loading findings:', error);
+            showToast('Error loading findings', 'error');
+        }
+    }
+
+    function loadConfiguration() {
+        if (!currentScan) return;
+
+        const config = currentScan.settings;
+        document.getElementById('config-details').innerHTML = `
+            <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Ports</dt>
+                    <dd class="mt-1 text-sm text-gray-900">${config.ports || 'Default'}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Host Concurrency</dt>
+                    <dd class="mt-1 text-sm text-gray-900">${config.host_conc}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Service Concurrency</dt>
+                    <dd class="mt-1 text-sm text-gray-900">${config.svc_conc}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Timeout</dt>
+                    <dd class="mt-1 text-sm text-gray-900">${config.timeout}s</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">SSL Verification</dt>
+                    <dd class="mt-1 text-sm text-gray-900">${config.insecure ? 'Disabled' : 'Enabled'}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">AI Provider</dt>
+                    <dd class="mt-1 text-sm text-gray-900">${config.ai_provider || 'None'}</dd>
+                </div>
+            </dl>
+        `;
+    }
+
+    function showTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.remove('border-indigo-500', 'text-indigo-600');
+            btn.classList.add('border-transparent', 'text-gray-500');
+        });
+        document.getElementById(`tab-${tabName}`).classList.remove('border-transparent', 'text-gray-500');
+        document.getElementById(`tab-${tabName}`).classList.add('border-indigo-500', 'text-indigo-600');
+
+        // Update content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.add('hidden');
+        });
+        document.getElementById(`${tabName}-content`).classList.remove('hidden');
+    }
+
+    async function toggleFalsePositive(findingId) {
+        try {
+            const response = await fetch(`/api/scans/${scanId}/findings/${findingId}/false-positive`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                showToast('Finding updated', 'success');
+                loadFindings();
+            }
+        } catch (error) {
+            console.error('Error updating finding:', error);
+            showToast('Error updating finding', 'error');
+        }
+    }
+
+    function getStatusBadge(status) {
+        const badges = {
+            'pending': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>',
+            'running': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Running</span>',
+            'completed': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Completed</span>',
+            'failed': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Failed</span>'
+        };
+        return badges[status] || status;
+    }
+
+    function formatDuration(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${minutes}m ${secs}s`;
+    }
+
+    // Load on page load
+    document.addEventListener('DOMContentLoaded', loadScanDetails);
+
+    // Auto-refresh if scan is running
+    setInterval(() => {
+        if (currentScan && (currentScan.status === 'running' || currentScan.status === 'pending')) {
+            loadScanDetails();
+        }
+    }, 5000);
+</script>
+{% endblock %}

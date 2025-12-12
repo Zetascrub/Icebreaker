@@ -33,41 +33,82 @@ class OllamaProvider(AIProvider):
 
     def __init__(self, model: str = "llama3.2", base_url: str = "http://localhost:11434"):
         self.model = model
-        self.base_url = base_url
+        # Clean up base_url
+        self.base_url = base_url.replace("http://", "").replace("https://", "")
 
     def generate_sync(self, prompt: str) -> str:
         """Generate response using Ollama API (synchronous)."""
-        with httpx.Client(timeout=120.0) as client:
-            try:
-                response = client.post(
-                    f"{self.base_url}/api/generate",
-                    json={
-                        "model": self.model,
-                        "prompt": prompt,
-                        "stream": False,
-                    }
-                )
-                response.raise_for_status()
-                return response.json()["response"]
-            except httpx.HTTPError as e:
-                raise RuntimeError(f"Ollama API error: {e}") from e
+        import json
+
+        url = f"http://{self.base_url}/api/chat"
+        payload = {
+            "model": self.model,
+            "stream": True,
+            "messages": [
+                {"role": "system", "content": "You are a cybersecurity expert analyzing vulnerability scan results."},
+                {"role": "user", "content": prompt}
+            ]
+        }
+
+        try:
+            with httpx.Client(timeout=300.0) as client:
+                with client.stream("POST", url, json=payload) as response:
+                    response.raise_for_status()
+                    content_accumulator = []
+
+                    for line in response.iter_lines():
+                        if not line.strip():
+                            continue
+                        try:
+                            chunk = json.loads(line)
+                            content_piece = chunk.get("message", {}).get("content", "")
+                            if content_piece:
+                                content_accumulator.append(content_piece)
+                        except json.JSONDecodeError:
+                            continue
+
+                    return "".join(content_accumulator).strip()
+        except httpx.HTTPError as e:
+            raise RuntimeError(f"Ollama API error: {e}. Please check that Ollama is running and accessible.") from e
+        except Exception as e:
+            raise RuntimeError(f"Ollama connection error: {e}") from e
 
     async def generate(self, prompt: str) -> str:
         """Generate response using Ollama API (asynchronous)."""
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            try:
-                response = await client.post(
-                    f"{self.base_url}/api/generate",
-                    json={
-                        "model": self.model,
-                        "prompt": prompt,
-                        "stream": False,
-                    }
-                )
-                response.raise_for_status()
-                return response.json()["response"]
-            except httpx.HTTPError as e:
-                raise RuntimeError(f"Ollama API error: {e}") from e
+        import json
+
+        url = f"http://{self.base_url}/api/chat"
+        payload = {
+            "model": self.model,
+            "stream": True,
+            "messages": [
+                {"role": "system", "content": "You are a cybersecurity expert analyzing vulnerability scan results."},
+                {"role": "user", "content": prompt}
+            ]
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                async with client.stream("POST", url, json=payload) as response:
+                    response.raise_for_status()
+                    content_accumulator = []
+
+                    async for line in response.aiter_lines():
+                        if not line.strip():
+                            continue
+                        try:
+                            chunk = json.loads(line)
+                            content_piece = chunk.get("message", {}).get("content", "")
+                            if content_piece:
+                                content_accumulator.append(content_piece)
+                        except json.JSONDecodeError:
+                            continue
+
+                    return "".join(content_accumulator).strip()
+        except httpx.HTTPError as e:
+            raise RuntimeError(f"Ollama API error: {e}. Please check that Ollama is running and accessible.") from e
+        except Exception as e:
+            raise RuntimeError(f"Ollama connection error: {e}") from e
 
 
 class AnthropicProvider(AIProvider):

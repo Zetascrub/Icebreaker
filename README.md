@@ -100,6 +100,9 @@ icebreaker -t scope.txt --ai ollama
 # Using Ollama with specific model
 icebreaker -t scope.txt --ai ollama --ai-model llama3.2
 
+# Using remote Ollama instance
+icebreaker -t scope.txt --ai ollama --ai-base-url http://192.168.1.100:11434
+
 # Using Claude (API key required)
 export ANTHROPIC_API_KEY="your-api-key"
 icebreaker -t scope.txt --ai claude
@@ -186,6 +189,7 @@ Open `report.html` in your browser for:
 | `--ports` | `-p` | `22,80,443` | Ports to scan |
 | `--ai` | | `none` | AI provider (ollama, anthropic/claude, openai) |
 | `--ai-model` | | provider default | AI model to use |
+| `--ai-base-url` | | `localhost:11434` | Base URL for AI provider (for remote endpoints) |
 
 ### Port Specification
 

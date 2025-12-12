@@ -60,6 +60,7 @@ def main(
     ports: str | None = typer.Option(None, "--ports", "-p", help="Ports to scan (e.g., '80,443' or '8000-8100' or 'top100')"),
     ai: str | None = typer.Option(None, "--ai", help="Enable AI analysis (providers: ollama, anthropic/claude, openai)"),
     ai_model: str | None = typer.Option(None, "--ai-model", help="AI model to use (provider-specific, e.g., 'llama3.2', 'claude-3-5-sonnet-20241022', 'gpt-4o')"),
+    ai_base_url: str | None = typer.Option(None, "--ai-base-url", help="Base URL for AI provider (e.g., 'http://192.168.1.100:11434' for remote Ollama)"),
 ):
     """
     Single-command entrypoint. Example:
@@ -113,10 +114,12 @@ def main(
     # Add AI summary writer if requested
     if ai:
         try:
-            ai_writer = AISummaryWriter(ai_provider=ai, ai_model=ai_model)
+            ai_writer = AISummaryWriter(ai_provider=ai, ai_model=ai_model, base_url=ai_base_url)
             writers.append(ai_writer)
             if not quiet:
-                console.print(f"[cyan]AI Analysis enabled:[/cyan] {ai} ({ai_model or 'default model'})")
+                model_info = ai_model or 'default model'
+                url_info = f" @ {ai_base_url}" if ai_base_url else ""
+                console.print(f"[cyan]AI Analysis enabled:[/cyan] {ai} ({model_info}{url_info})")
         except Exception as e:
             console.print(f"[yellow]Warning:[/yellow] Could not initialize AI writer: {e}")
             console.print("[yellow]Continuing without AI analysis...[/yellow]")

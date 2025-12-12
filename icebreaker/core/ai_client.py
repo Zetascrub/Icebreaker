@@ -11,14 +11,20 @@ import os
 from typing import Optional, Dict, Any
 from abc import ABC, abstractmethod
 import httpx
+import asyncio
 
 
 class AIProvider(ABC):
     """Base class for AI providers."""
 
     @abstractmethod
+    def generate_sync(self, prompt: str) -> str:
+        """Generate a response from the AI model (synchronous)."""
+        pass
+
+    @abstractmethod
     async def generate(self, prompt: str) -> str:
-        """Generate a response from the AI model."""
+        """Generate a response from the AI model (asynchronous)."""
         pass
 
 
@@ -29,8 +35,25 @@ class OllamaProvider(AIProvider):
         self.model = model
         self.base_url = base_url
 
+    def generate_sync(self, prompt: str) -> str:
+        """Generate response using Ollama API (synchronous)."""
+        with httpx.Client(timeout=120.0) as client:
+            try:
+                response = client.post(
+                    f"{self.base_url}/api/generate",
+                    json={
+                        "model": self.model,
+                        "prompt": prompt,
+                        "stream": False,
+                    }
+                )
+                response.raise_for_status()
+                return response.json()["response"]
+            except httpx.HTTPError as e:
+                raise RuntimeError(f"Ollama API error: {e}") from e
+
     async def generate(self, prompt: str) -> str:
-        """Generate response using Ollama API."""
+        """Generate response using Ollama API (asynchronous)."""
         async with httpx.AsyncClient(timeout=120.0) as client:
             try:
                 response = await client.post(
@@ -56,8 +79,32 @@ class AnthropicProvider(AIProvider):
         if not self.api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable not set")
 
+    def generate_sync(self, prompt: str) -> str:
+        """Generate response using Anthropic API (synchronous)."""
+        with httpx.Client(timeout=120.0) as client:
+            try:
+                response = client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": self.api_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json={
+                        "model": self.model,
+                        "max_tokens": 4096,
+                        "messages": [
+                            {"role": "user", "content": prompt}
+                        ]
+                    }
+                )
+                response.raise_for_status()
+                return response.json()["content"][0]["text"]
+            except httpx.HTTPError as e:
+                raise RuntimeError(f"Anthropic API error: {e}") from e
+
     async def generate(self, prompt: str) -> str:
-        """Generate response using Anthropic API."""
+        """Generate response using Anthropic API (asynchronous)."""
         async with httpx.AsyncClient(timeout=120.0) as client:
             try:
                 response = await client.post(
@@ -90,8 +137,31 @@ class OpenAIProvider(AIProvider):
         if not self.api_key:
             raise ValueError("OPENAI_API_KEY environment variable not set")
 
+    def generate_sync(self, prompt: str) -> str:
+        """Generate response using OpenAI API (synchronous)."""
+        with httpx.Client(timeout=120.0) as client:
+            try:
+                response = client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {"role": "user", "content": prompt}
+                        ],
+                        "max_tokens": 4096,
+                    }
+                )
+                response.raise_for_status()
+                return response.json()["choices"][0]["message"]["content"]
+            except httpx.HTTPError as e:
+                raise RuntimeError(f"OpenAI API error: {e}") from e
+
     async def generate(self, prompt: str) -> str:
-        """Generate response using OpenAI API."""
+        """Generate response using OpenAI API (asynchronous)."""
         async with httpx.AsyncClient(timeout=120.0) as client:
             try:
                 response = await client.post(
@@ -148,6 +218,10 @@ class AIClient:
 
         self.provider = provider_class(**init_kwargs)
 
+    def generate_summary_sync(self, prompt: str) -> str:
+        """Generate AI summary (synchronous)."""
+        return self.provider.generate_sync(prompt)
+
     async def generate_summary(self, prompt: str) -> str:
-        """Generate AI summary."""
+        """Generate AI summary (asynchronous)."""
         return await self.provider.generate(prompt)

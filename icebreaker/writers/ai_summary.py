@@ -5,7 +5,6 @@ Analyzes scan results and generates a comprehensive executive summary
 using AI models (Ollama, Claude, OpenAI, etc.).
 """
 from __future__ import annotations
-import asyncio
 from pathlib import Path
 from typing import List, Optional
 from icebreaker.core.models import RunContext, Service, Finding
@@ -31,17 +30,12 @@ class AISummaryWriter:
 
     def write(self, ctx: RunContext, services: List[Service], findings: List[Finding]) -> None:
         """Generate and write AI-powered executive summary."""
-        # Run async operation in sync context
-        asyncio.run(self._async_write(ctx, services, findings))
-
-    async def _async_write(self, ctx: RunContext, services: List[Service], findings: List[Finding]) -> None:
-        """Async implementation of write."""
         # Build context for AI
         prompt = self._build_prompt(ctx, services, findings)
 
-        # Generate summary
+        # Generate summary using synchronous method
         try:
-            summary = await self.client.generate_summary(prompt)
+            summary = self.client.generate_summary_sync(prompt)
         except Exception as e:
             summary = f"Error generating AI summary: {e}"
 

@@ -16,17 +16,25 @@ class AISummaryWriter:
 
     id = "ai_summary"
 
-    def __init__(self, ai_provider: str, ai_model: Optional[str] = None):
+    def __init__(self, ai_provider: str, ai_model: Optional[str] = None, base_url: Optional[str] = None):
         """
         Initialize AI summary writer.
 
         Args:
             ai_provider: AI provider name (ollama, anthropic, openai)
             ai_model: Model name (optional, uses provider defaults)
+            base_url: Base URL for AI provider (optional, for remote endpoints)
         """
         self.ai_provider = ai_provider
         self.ai_model = ai_model
-        self.client = AIClient(provider=ai_provider, model=ai_model)
+        self.base_url = base_url
+
+        # Build kwargs for AIClient
+        client_kwargs = {}
+        if base_url:
+            client_kwargs['base_url'] = base_url
+
+        self.client = AIClient(provider=ai_provider, model=ai_model, **client_kwargs)
 
     def write(self, ctx: RunContext, services: List[Service], findings: List[Finding]) -> None:
         """Generate and write AI-powered executive summary."""

@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 from typing import Dict, Any, List, Optional
 from icebreaker.core.models import RunContext, Service, Finding
+from icebreaker.analyzers.template_lookup import get_template_id
 
 
 class WAFCDNDetector:
@@ -32,6 +33,14 @@ class WAFCDNDetector:
             result = analyzer.analyze(service.target, service.port, use_https)
 
             for finding_dict in result.get("findings", []):
+                # Map finding to template ID
+                template_id = None
+                title = finding_dict["title"]
+                if "WAF" in title or "CDN" in title or "Content Delivery Network" in title:
+                    # Only map informational WAF/CDN detections to template
+                    if finding_dict.get("category") in ["waf", "cdn"]:
+                        template_id = get_template_id("ICEBREAKER-010")
+
                 findings.append(Finding(
                     id=f"waf_cdn.{finding_dict.get('category', 'misc')}.{service.target}.{service.port}",
                     title=finding_dict["title"],
@@ -44,7 +53,8 @@ class WAFCDNDetector:
                         "waf_detected": result.get("waf_detected", []),
                         "cdn_detected": result.get("cdn_detected", [])
                     },
-                    recommendation=finding_dict.get("recommendation")
+                    recommendation=finding_dict.get("recommendation"),
+                    template_id=template_id
                 ))
 
             analyzer.close()

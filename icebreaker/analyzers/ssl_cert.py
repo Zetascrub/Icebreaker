@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List
 import OpenSSL.crypto
 from icebreaker.core.models import RunContext, Service, Finding
+from icebreaker.analyzers.template_lookup import get_template_id
 
 
 class SSLCertAnalyzer:
@@ -34,6 +35,14 @@ class SSLCertAnalyzer:
             result = analyzer.analyze(service.target, service.port)
 
             for finding_dict in result.get("findings", []):
+                # Map finding title to template ID
+                template_id = None
+                title = finding_dict["title"]
+                if "Expired SSL Certificate" in title or "Expiring" in title:
+                    template_id = get_template_id("ICEBREAKER-006")
+                elif "Self-Signed" in title:
+                    template_id = get_template_id("ICEBREAKER-005")
+
                 findings.append(Finding(
                     id=f"ssl_cert.{finding_dict.get('category', 'misc')}.{service.target}.{service.port}",
                     title=finding_dict["title"],
@@ -42,7 +51,8 @@ class SSLCertAnalyzer:
                     port=service.port,
                     tags=["ssl", "tls", finding_dict.get("category", "cert")],
                     details=result,
-                    recommendation=finding_dict.get("recommendation")
+                    recommendation=finding_dict.get("recommendation"),
+                    template_id=template_id
                 ))
 
         except Exception as e:

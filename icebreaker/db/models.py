@@ -111,11 +111,61 @@ class Finding(Base):
     recommendation = Column(Text, nullable=True)
     false_positive = Column(Boolean, default=False, index=True)
 
+    # Template linkage
+    template_id = Column(Integer, ForeignKey("finding_templates.id"), nullable=True, index=True)
+
+    # Workflow & tracking
+    status = Column(String(20), default="new", index=True)  # new, confirmed, in_progress, fixed, false_positive, accepted_risk
+    assigned_to = Column(String(255), nullable=True)  # Username or email
+    notes = Column(Text, nullable=True)  # Internal notes for tracking
+    first_seen = Column(DateTime, default=datetime.utcnow)
+    last_seen = Column(DateTime, default=datetime.utcnow)
+
     # Relationship
     scan = relationship("Scan", back_populates="findings")
+    template = relationship("FindingTemplate", back_populates="findings")
 
     def __repr__(self):
         return f"<Finding(id={self.id}, title={self.title}, severity={self.severity})>"
+
+
+class FindingTemplate(Base):
+    """Finding template with standardized descriptions and remediation."""
+    __tablename__ = "finding_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    finding_id = Column(String(100), unique=True, nullable=False, index=True)  # e.g., "ICEBREAKER-001"
+    title = Column(String(500), nullable=False)
+    category = Column(String(100), nullable=True, index=True)  # e.g., "TLS/SSL", "HTTP Headers", "Authentication"
+
+    # Detailed information
+    description = Column(Text, nullable=False)  # What is this finding?
+    impact = Column(Text, nullable=False)  # What could happen if exploited?
+    remediation = Column(Text, nullable=False)  # How to fix it?
+
+    # Risk assessment
+    severity = Column(String(20), nullable=False, index=True)  # critical, high, medium, low, info
+    cvss_score = Column(Float, nullable=True)
+    cvss_vector = Column(String(255), nullable=True)  # e.g., "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N"
+
+    # Compliance & references
+    cwe_id = Column(String(50), nullable=True)  # e.g., "CWE-326"
+    owasp_2021 = Column(String(100), nullable=True)  # e.g., "A02:2021 – Cryptographic Failures"
+    pci_dss = Column(String(100), nullable=True)  # e.g., "Requirement 4.1"
+    nist_csf = Column(String(100), nullable=True)  # NIST Cybersecurity Framework mapping
+    references = Column(JSON, default=list)  # List of URLs, RFCs, etc.
+
+    # Metadata
+    enabled = Column(Boolean, default=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = Column(String(255), nullable=True)  # Username who created/imported template
+
+    # Relationships
+    findings = relationship("Finding", back_populates="template")
+
+    def __repr__(self):
+        return f"<FindingTemplate(id={self.id}, finding_id={self.finding_id}, title={self.title})>"
 
 
 class ScanProfile(Base):

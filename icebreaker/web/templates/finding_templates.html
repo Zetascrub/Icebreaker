@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+
+{% block title %}Finding Templates - Icebreaker{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Finding Templates</h1>
+            <p class="mt-2 text-sm text-gray-600">Manage standardized vulnerability findings with descriptions and remediation</p>
+        </div>
+        <button onclick="showCreateModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            New Template
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white shadow rounded-lg p-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select id="filter-category" onchange="loadTemplates()" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Severity</label>
+                <select id="filter-severity" onchange="loadTemplates()" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <option value="">All Severities</option>
+                    <option value="CRITICAL">Critical</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                    <option value="INFO">Info</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select id="filter-enabled" onchange="loadTemplates()" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <option value="true">Enabled Only</option>
+                    <option value="false">Disabled Only</option>
+                    <option value="">All</option>
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button onclick="loadTemplates()" class="w-full bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates List -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Templates</h2>
+        </div>
+        <div id="templates-list" class="divide-y divide-gray-200">
+            <div class="p-8 text-center text-gray-500">
+                <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading templates...
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div id="template-modal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-10 mx-auto p-8 w-full max-w-4xl">
+        <div class="bg-white rounded-lg shadow-xl">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 id="modal-title" class="text-lg font-medium text-gray-900">New Finding Template</h3>
+                <button onclick="hideModal()" class="text-gray-400 hover:text-gray-500">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <form id="template-form" class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                <div class="grid grid-cols-2 gap-6">
+                    <!-- Finding ID -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Finding ID *</label>
+                        <input type="text" id="finding_id" required placeholder="ICEBREAKER-011"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <p class="mt-1 text-xs text-gray-500">Unique identifier (e.g., ICEBREAKER-011)</p>
+                    </div>
+
+                    <!-- Category -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Category</label>
+                        <input type="text" id="category" placeholder="HTTP Headers"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                </div>
+
+                <!-- Title -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Title *</label>
+                    <input type="text" id="title" required placeholder="Missing Security Header Detected"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+
+                <!-- Description -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Description *</label>
+                    <textarea id="description" required rows="4" placeholder="Detailed description of the vulnerability..."
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+                    <p class="mt-1 text-xs text-gray-500">What is this finding? Why is it a problem?</p>
+                </div>
+
+                <!-- Impact -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Impact *</label>
+                    <textarea id="impact" required rows="3" placeholder="What could happen if exploited..."
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+                    <p class="mt-1 text-xs text-gray-500">Real-world impact and consequences</p>
+                </div>
+
+                <!-- Remediation -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Remediation *</label>
+                    <textarea id="remediation" required rows="5" placeholder="Step-by-step remediation instructions..."
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+                    <p class="mt-1 text-xs text-gray-500">How to fix this issue (numbered steps recommended)</p>
+                </div>
+
+                <div class="grid grid-cols-3 gap-6">
+                    <!-- Severity -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Severity *</label>
+                        <select id="severity" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            <option value="CRITICAL">Critical</option>
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM" selected>Medium</option>
+                            <option value="LOW">Low</option>
+                            <option value="INFO">Info</option>
+                        </select>
+                    </div>
+
+                    <!-- CVSS Score -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">CVSS Score</label>
+                        <input type="number" id="cvss_score" step="0.1" min="0" max="10" placeholder="5.3"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+
+                    <!-- Enabled -->
+                    <div class="flex items-end">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="enabled" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                            <span class="ml-2 text-sm text-gray-700">Enabled</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- CVSS Vector -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">CVSS Vector</label>
+                    <input type="text" id="cvss_vector" placeholder="CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+
+                <!-- Compliance Mappings -->
+                <div class="border-t pt-6">
+                    <h4 class="text-sm font-medium text-gray-900 mb-4">Compliance Mappings</h4>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">CWE ID</label>
+                            <input type="text" id="cwe_id" placeholder="CWE-326"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">OWASP 2021</label>
+                            <input type="text" id="owasp_2021" placeholder="A02:2021 – Cryptographic Failures"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">PCI-DSS</label>
+                            <input type="text" id="pci_dss" placeholder="Requirement 4.1"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">NIST CSF</label>
+                            <input type="text" id="nist_csf" placeholder="PR.DS-2"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- References -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">References</label>
+                    <textarea id="references" rows="3" placeholder="https://owasp.org/...&#10;https://cwe.mitre.org/..."
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+                    <p class="mt-1 text-xs text-gray-500">One URL per line</p>
+                </div>
+            </form>
+
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <button onclick="hideModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button onclick="saveTemplate()" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                    Save Template
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let editingTemplateId = null;
+
+async function loadTemplates() {
+    const category = document.getElementById('filter-category').value;
+    const severity = document.getElementById('filter-severity').value;
+    const enabledOnly = document.getElementById('filter-enabled').value;
+
+    const params = new URLSearchParams();
+    if (category) params.append('category', category);
+    if (severity) params.append('severity', severity);
+    if (enabledOnly) params.append('enabled_only', enabledOnly);
+
+    try {
+        const response = await fetch(`/api/finding-templates?${params}`);
+        const templates = await response.json();
+
+        const list = document.getElementById('templates-list');
+
+        if (templates.length === 0) {
+            list.innerHTML = '<div class="p-8 text-center text-gray-500">No templates found</div>';
+            return;
+        }
+
+        list.innerHTML = templates.map(template => `
+            <div class="p-6 hover:bg-gray-50">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-3">
+                            <span class="severity-${template.severity.toLowerCase()} font-semibold text-xs px-2 py-1 rounded">${template.severity}</span>
+                            ${template.category ? `<span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">${template.category}</span>` : ''}
+                            ${!template.enabled ? '<span class="text-xs text-red-600 bg-red-100 px-2 py-1 rounded">Disabled</span>' : ''}
+                        </div>
+                        <h3 class="mt-2 text-lg font-medium text-gray-900">${template.title}</h3>
+                        <p class="mt-1 text-sm text-gray-600">${template.finding_id}</p>
+                        <p class="mt-2 text-sm text-gray-700 line-clamp-2">${template.description}</p>
+                        <div class="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
+                            ${template.cvss_score ? `<span>CVSS: ${template.cvss_score}</span>` : ''}
+                            ${template.cwe_id ? `<span>${template.cwe_id}</span>` : ''}
+                            ${template.owasp_2021 ? `<span>${template.owasp_2021}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="ml-4 flex space-x-2">
+                        <button onclick="viewTemplate(${template.id})" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                            View
+                        </button>
+                        <button onclick="editTemplate(${template.id})" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            Edit
+                        </button>
+                        <button onclick="deleteTemplate(${template.id}, '${template.finding_id}')" class="text-red-600 hover:text-red-800 text-sm font-medium">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error loading templates:', error);
+        showToast('Error loading templates', 'error');
+    }
+}
+
+async function loadCategories() {
+    try {
+        const response = await fetch('/api/finding-templates/categories/list');
+        const categories = await response.json();
+
+        const select = document.getElementById('filter-category');
+        categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat;
+            option.textContent = cat;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading categories:', error);
+    }
+}
+
+function showCreateModal() {
+    editingTemplateId = null;
+    document.getElementById('modal-title').textContent = 'New Finding Template';
+    document.getElementById('template-form').reset();
+    document.getElementById('finding_id').readOnly = false;
+    document.getElementById('enabled').checked = true;
+    document.getElementById('template-modal').classList.remove('hidden');
+}
+
+async function editTemplate(id) {
+    try {
+        const response = await fetch(`/api/finding-templates/${id}`);
+        const template = await response.json();
+
+        editingTemplateId = id;
+        document.getElementById('modal-title').textContent = 'Edit Finding Template';
+
+        // Populate form
+        document.getElementById('finding_id').value = template.finding_id;
+        document.getElementById('finding_id').readOnly = true;
+        document.getElementById('category').value = template.category || '';
+        document.getElementById('title').value = template.title;
+        document.getElementById('description').value = template.description;
+        document.getElementById('impact').value = template.impact;
+        document.getElementById('remediation').value = template.remediation;
+        document.getElementById('severity').value = template.severity;
+        document.getElementById('cvss_score').value = template.cvss_score || '';
+        document.getElementById('cvss_vector').value = template.cvss_vector || '';
+        document.getElementById('cwe_id').value = template.cwe_id || '';
+        document.getElementById('owasp_2021').value = template.owasp_2021 || '';
+        document.getElementById('pci_dss').value = template.pci_dss || '';
+        document.getElementById('nist_csf').value = template.nist_csf || '';
+        document.getElementById('references').value = (template.references || []).join('\n');
+        document.getElementById('enabled').checked = template.enabled;
+
+        document.getElementById('template-modal').classList.remove('hidden');
+    } catch (error) {
+        console.error('Error loading template:', error);
+        showToast('Error loading template', 'error');
+    }
+}
+
+async function viewTemplate(id) {
+    try {
+        const response = await fetch(`/api/finding-templates/${id}`);
+        const template = await response.json();
+
+        const content = `
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900">${template.title}</h3>
+                    <p class="text-sm text-gray-500">${template.finding_id}</p>
+                </div>
+
+                <div>
+                    <h4 class="font-medium text-gray-900">Description</h4>
+                    <p class="mt-1 text-sm text-gray-700">${template.description}</p>
+                </div>
+
+                <div>
+                    <h4 class="font-medium text-gray-900">Impact</h4>
+                    <p class="mt-1 text-sm text-gray-700">${template.impact}</p>
+                </div>
+
+                <div>
+                    <h4 class="font-medium text-gray-900">Remediation</h4>
+                    <pre class="mt-1 text-sm text-gray-700 whitespace-pre-wrap">${template.remediation}</pre>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-medium text-gray-900">Severity</h4>
+                        <span class="severity-${template.severity.toLowerCase()} inline-block px-2 py-1 text-xs font-semibold rounded mt-1">${template.severity}</span>
+                    </div>
+                    ${template.cvss_score ? `
+                    <div>
+                        <h4 class="font-medium text-gray-900">CVSS Score</h4>
+                        <p class="mt-1 text-sm text-gray-700">${template.cvss_score}</p>
+                    </div>` : ''}
+                </div>
+
+                ${template.cvss_vector ? `
+                <div>
+                    <h4 class="font-medium text-gray-900">CVSS Vector</h4>
+                    <code class="mt-1 text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded block">${template.cvss_vector}</code>
+                </div>` : ''}
+
+                <div class="grid grid-cols-2 gap-4">
+                    ${template.cwe_id ? `<div><h4 class="font-medium text-gray-900">CWE</h4><p class="mt-1 text-sm text-gray-700">${template.cwe_id}</p></div>` : ''}
+                    ${template.owasp_2021 ? `<div><h4 class="font-medium text-gray-900">OWASP 2021</h4><p class="mt-1 text-sm text-gray-700">${template.owasp_2021}</p></div>` : ''}
+                    ${template.pci_dss ? `<div><h4 class="font-medium text-gray-900">PCI-DSS</h4><p class="mt-1 text-sm text-gray-700">${template.pci_dss}</p></div>` : ''}
+                    ${template.nist_csf ? `<div><h4 class="font-medium text-gray-900">NIST CSF</h4><p class="mt-1 text-sm text-gray-700">${template.nist_csf}</p></div>` : ''}
+                </div>
+
+                ${template.references && template.references.length > 0 ? `
+                <div>
+                    <h4 class="font-medium text-gray-900">References</h4>
+                    <ul class="mt-1 text-sm text-blue-600 space-y-1">
+                        ${template.references.map(ref => `<li><a href="${ref}" target="_blank" class="hover:underline">${ref}</a></li>`).join('')}
+                    </ul>
+                </div>` : ''}
+            </div>
+        `;
+
+        // Create a temporary modal for viewing
+        const viewModal = document.createElement('div');
+        viewModal.className = 'fixed inset-0 bg-gray-500 bg-opacity-75 overflow-y-auto h-full w-full z-50';
+        viewModal.innerHTML = `
+            <div class="relative top-10 mx-auto p-8 w-full max-w-3xl mb-10">
+                <div class="bg-white rounded-lg shadow-xl">
+                    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                        <h3 class="text-lg font-medium text-gray-900">Template Details</h3>
+                        <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-500">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="p-6 max-h-[70vh] overflow-y-auto">
+                        ${content}
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(viewModal);
+    } catch (error) {
+        console.error('Error viewing template:', error);
+        showToast('Error viewing template', 'error');
+    }
+}
+
+async function saveTemplate() {
+    const formData = {
+        finding_id: document.getElementById('finding_id').value,
+        category: document.getElementById('category').value || null,
+        title: document.getElementById('title').value,
+        description: document.getElementById('description').value,
+        impact: document.getElementById('impact').value,
+        remediation: document.getElementById('remediation').value,
+        severity: document.getElementById('severity').value,
+        cvss_score: parseFloat(document.getElementById('cvss_score').value) || null,
+        cvss_vector: document.getElementById('cvss_vector').value || null,
+        cwe_id: document.getElementById('cwe_id').value || null,
+        owasp_2021: document.getElementById('owasp_2021').value || null,
+        pci_dss: document.getElementById('pci_dss').value || null,
+        nist_csf: document.getElementById('nist_csf').value || null,
+        references: document.getElementById('references').value.split('\n').filter(r => r.trim()),
+        enabled: document.getElementById('enabled').checked
+    };
+
+    try {
+        const url = editingTemplateId
+            ? `/api/finding-templates/${editingTemplateId}`
+            : '/api/finding-templates';
+
+        const method = editingTemplateId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+            showToast(editingTemplateId ? 'Template updated' : 'Template created', 'success');
+            hideModal();
+            loadTemplates();
+            loadCategories();
+        } else {
+            const error = await response.json();
+            showToast(error.detail || 'Error saving template', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving template:', error);
+        showToast('Error saving template', 'error');
+    }
+}
+
+async function deleteTemplate(id, findingId) {
+    if (!confirm(`Are you sure you want to delete template "${findingId}"?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/finding-templates/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            showToast('Template deleted', 'success');
+            loadTemplates();
+        } else {
+            const error = await response.json();
+            showToast(error.detail || 'Error deleting template', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting template:', error);
+        showToast('Error deleting template', 'error');
+    }
+}
+
+function hideModal() {
+    document.getElementById('template-modal').classList.add('hidden');
+    editingTemplateId = null;
+}
+
+// Load on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadTemplates();
+    loadCategories();
+});
+</script>
+{% endblock %}

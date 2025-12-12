@@ -45,6 +45,13 @@ def init_db():
     # Run migrations if needed
     apply_migrations()
 
+    # Seed finding templates
+    try:
+        from icebreaker.db.seed_finding_templates import seed_finding_templates
+        seed_finding_templates()
+    except Exception as e:
+        print(f"⚠️  Warning: Could not seed finding templates: {e}")
+
 
 def apply_migrations():
     """Apply database migrations if needed."""
@@ -87,7 +94,25 @@ def apply_migrations():
             cursor.execute("ALTER TABLE targets ADD COLUMN is_alive BOOLEAN")
 
             conn.commit()
-            print("✅ Migration completed successfully!")
+            print("✅ Progress tracking migration completed!")
+
+        # Migration: Add finding workflow and template support
+        cursor.execute("PRAGMA table_info(findings)")
+        findings_columns = {row[1] for row in cursor.fetchall()}
+
+        if "status" not in findings_columns:
+            print("🔄 Applying migration: Adding finding workflow and template support...")
+
+            # Add columns to findings table
+            cursor.execute("ALTER TABLE findings ADD COLUMN template_id INTEGER")
+            cursor.execute("ALTER TABLE findings ADD COLUMN status VARCHAR(20) DEFAULT 'new'")
+            cursor.execute("ALTER TABLE findings ADD COLUMN assigned_to VARCHAR(255)")
+            cursor.execute("ALTER TABLE findings ADD COLUMN notes TEXT")
+            cursor.execute("ALTER TABLE findings ADD COLUMN first_seen DATETIME DEFAULT CURRENT_TIMESTAMP")
+            cursor.execute("ALTER TABLE findings ADD COLUMN last_seen DATETIME DEFAULT CURRENT_TIMESTAMP")
+
+            conn.commit()
+            print("✅ Finding workflow migration completed!")
 
         conn.close()
     except Exception as e:

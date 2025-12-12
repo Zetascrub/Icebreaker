@@ -94,6 +94,14 @@
                             Skip ping sweep (scan all targets, useful if ICMP is blocked)
                         </label>
                     </div>
+
+                    <div class="flex items-center">
+                        <input type="checkbox" id="use_nmap" name="use_nmap"
+                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                        <label for="use_nmap" class="ml-2 block text-sm text-gray-900">
+                            Use nmap for faster scanning (10-100x speed improvement on large networks)
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -182,6 +190,7 @@
             timeout: parseFloat(formData.get('timeout')),
             insecure: formData.get('insecure') === 'on',
             skip_ping_sweep: formData.get('skip_ping_sweep') === 'on',
+            use_nmap: formData.get('use_nmap') === 'on',
             ai_provider: formData.get('ai_provider') || null,
             ai_model: formData.get('ai_model') || null,
             ai_base_url: formData.get('ai_base_url') || null

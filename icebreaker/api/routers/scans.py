@@ -34,6 +34,7 @@ class ScanCreate(BaseModel):
     timeout: float = 1.5
     insecure: bool = False
     skip_ping_sweep: bool = False  # Skip ICMP ping sweep (useful for networks that block ICMP)
+    use_nmap: bool = False  # Use nmap for faster scanning (requires nmap installed)
     ai_provider: Optional[str] = None
     ai_model: Optional[str] = None
     ai_base_url: Optional[str] = None
@@ -115,6 +116,7 @@ async def create_scan(
             "timeout": scan_request.timeout,
             "insecure": scan_request.insecure,
             "skip_ping_sweep": scan_request.skip_ping_sweep,
+            "use_nmap": scan_request.use_nmap,
             "ai_provider": scan_request.ai_provider,
             "ai_model": scan_request.ai_model,
             "ai_base_url": scan_request.ai_base_url,
@@ -709,9 +711,67 @@ async def execute_scan(scan_id: int):
         timeout = settings.get('timeout', 1.5)
         insecure = settings.get('insecure', False)
         host_conc = settings.get('host_conc', 128)
+        use_nmap = settings.get('use_nmap', False)
+
+        # Create progress callback for port scanning
+        async def port_scan_progress_callback(current, total):
+            # Calculate progress within the port scan phase
+            if skip_ping_sweep:
+                # Port scan is 0-50% of total progress
+                progress = int((current / total) * 50)
+            else:
+                # Port scan is 20-60% of total progress (40% range)
+                progress = 20 + int((current / total) * 40)
+
+            scan.progress_percentage = progress
+            scan.ports_scanned = current
+            db.commit()
+
+            # Send WebSocket update every 5%
+            if progress % 5 == 0 or current == total:
+                await manager.send_update(scan_id, {
+                    "type": "scan_progress",
+                    "data": {
+                        "phase": "port_scan",
+                        "progress": progress,
+                        "ports_scanned": current,
+                        "total_ports": total,
+                        "message": f"Scanning ports... ({current}/{total} probes complete)"
+                    }
+                })
+
+        # Choose scanner based on settings
+        if use_nmap:
+            try:
+                from icebreaker.detectors.nmap_probe import NmapProbe
+                port_scanner = NmapProbe(
+                    timeout=timeout,
+                    quiet=True,
+                    ports=port_list,
+                    scan_arguments="-sS -T4",  # SYN scan, aggressive timing
+                    progress_callback=port_scan_progress_callback
+                )
+            except Exception as e:
+                # Fall back to TCP probe if nmap fails
+                print(f"Nmap initialization failed, falling back to TCP probe: {e}")
+                port_scanner = TCPProbe(
+                    timeout=timeout,
+                    quiet=True,
+                    ports=port_list,
+                    max_concurrent=host_conc,
+                    progress_callback=port_scan_progress_callback
+                )
+        else:
+            port_scanner = TCPProbe(
+                timeout=timeout,
+                quiet=True,
+                ports=port_list,
+                max_concurrent=host_conc,
+                progress_callback=port_scan_progress_callback
+            )
 
         detectors = [
-            TCPProbe(timeout=timeout, quiet=True, ports=port_list, max_concurrent=host_conc),
+            port_scanner,
             BannerGrab(timeout=timeout, quiet=True, insecure=insecure),
         ]
 

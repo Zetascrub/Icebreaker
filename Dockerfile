@@ -6,6 +6,8 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    nmap \
+    iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy project files

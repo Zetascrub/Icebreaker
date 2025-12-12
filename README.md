@@ -180,6 +180,143 @@ export ICEBREAKER_API_KEY="your-secret-key"
 
 # Optional: Use remote Ollama
 export OLLAMA_HOST="http://your-ollama-server:11434"
+
+# Optional: NVD API key for CVE lookups (higher rate limits)
+export NVD_API_KEY="your-nvd-api-key"
+
+# Optional: Email notifications
+export SMTP_SERVER="smtp.gmail.com"
+export SMTP_PORT="587"
+export SMTP_USERNAME="your-email@gmail.com"
+export SMTP_PASSWORD="your-app-password"
+```
+
+## 🚀 Advanced Features
+
+### 1. Vulnerability Database Integration
+
+Icebreaker automatically matches discovered services with known CVEs from the National Vulnerability Database (NVD):
+
+- **Automatic CVE Matching** - Service versions are checked against NVD database
+- **CVSS Scoring** - Each CVE includes severity and CVSS scores
+- **Exploit Detection** - Identifies CVEs with known public exploits
+- **Local Caching** - CVE data cached for 7 days to reduce API calls
+
+```python
+# CVE lookups happen automatically during scans
+# Results include CVE IDs, CVSS scores, and exploit information
+```
+
+### 2. Custom Analyzer Plugins
+
+Extend Icebreaker with custom security checks using the plugin system:
+
+**Creating a Plugin:**
+```python
+# icebreaker/plugins/my_plugin.py
+from icebreaker.core.plugin_system import AnalyzerPlugin
+
+class MyCustomPlugin(AnalyzerPlugin):
+    name = "my_custom_analyzer"
+    description = "Custom security checks"
+    version = "1.0.0"
+    author = "Your Name"
+
+    async def analyze(self, target, port, service, banner=""):
+        findings = []
+        # Your analysis logic here
+        return findings
+```
+
+**Plugin Discovery:**
+- Built-in plugins: `icebreaker/plugins/`
+- User plugins: `./plugins/` or `/data/plugins/` (Docker)
+- Plugins are auto-loaded on startup
+
+### 3. Advanced Detection Analyzers
+
+**DNS Reconnaissance:**
+- A, AAAA, MX, NS, TXT, CNAME, PTR record enumeration
+- SPF and DMARC policy detection
+- DNS zone transfer vulnerability checks
+- Reverse DNS lookups
+
+**SSL/TLS Certificate Analysis:**
+- Certificate expiration tracking (with warnings at 60/30 days)
+- Self-signed certificate detection
+- Weak signature algorithm detection (SHA-1)
+- Key size validation (minimum 2048-bit)
+- Subject Alternative Name (SAN) enumeration
+
+**WAF & CDN Detection:**
+- Identifies 15+ WAF vendors (Cloudflare, AWS WAF, Akamai, etc.)
+- Detects 12+ CDN providers
+- Security header analysis
+- WAF bypass testing
+
+**API Endpoint Discovery:**
+- Common API path enumeration (/api, /v1, /graphql, etc.)
+- Swagger/OpenAPI documentation detection
+- GraphQL introspection testing
+- Admin endpoint exposure checks
+- Debug endpoint detection
+
+### 4. Scheduled Scans
+
+Automate security scans with flexible scheduling options:
+
+**Schedule Types:**
+- **Cron** - Unix cron expressions (`0 2 * * *` for daily at 2 AM)
+- **Interval** - Simple intervals (`1h`, `30m`, `1d`, `1w`)
+- **Once** - One-time scheduled scans
+
+**Example via Web UI:**
+1. Navigate to Settings > Schedules
+2. Create new schedule with targets and scan profile
+3. Set recurrence (cron or interval)
+4. Enable/disable as needed
+
+**Example via API:**
+```bash
+curl -X POST http://localhost:9000/api/schedules \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Nightly Infrastructure Scan",
+    "schedule_type": "cron",
+    "schedule_value": "0 2 * * *",
+    "targets": ["internal.example.com"],
+    "scan_config": {"preset": "deep"}
+  }'
+```
+
+### 5. Notifications & Alerting
+
+Get notified when scans complete or critical findings are discovered:
+
+**Supported Channels:**
+- 📧 **Email** - SMTP-based email notifications
+- 💬 **Slack** - Webhook integration with rich formatting
+- 🎮 **Discord** - Embed notifications with severity colors
+- 💼 **Microsoft Teams** - Adaptive card notifications
+- 🔗 **Custom Webhooks** - Generic JSON webhook support
+
+**Filtering Options:**
+- Minimum severity threshold (only notify on high/critical)
+- Only notify when findings exist
+- Custom message templates
+
+**Example Configuration:**
+```json
+{
+  "name": "Security Team Slack",
+  "type": "slack",
+  "enabled": true,
+  "config": {
+    "webhook_url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+  },
+  "min_severity": "high",
+  "only_on_findings": true
+}
 ```
 
 ## 📊 Output Formats

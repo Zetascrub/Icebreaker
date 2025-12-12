@@ -1,0 +1,184 @@
+"""
+SSL/TLS certificate analyzer with expiration tracking.
+"""
+from __future__ import annotations
+import ssl
+import socket
+from datetime import datetime, timedelta
+from typing import Dict, Any, List
+import OpenSSL.crypto
+
+
+class SSLCertificateAnalyzer:
+    """Analyzer for SSL/TLS certificates."""
+
+    def __init__(self):
+        self.timeout = 5
+
+    def analyze(self, target: str, port: int = 443) -> Dict[str, Any]:
+        """
+        Analyze SSL/TLS certificate for a target.
+
+        Args:
+            target: Target hostname or IP
+            port: Target port (default 443)
+
+        Returns:
+            Dictionary with certificate information and findings
+        """
+        findings = []
+        cert_info = {
+            "target": target,
+            "port": port,
+            "has_ssl": False,
+            "findings": findings
+        }
+
+        try:
+            # Create SSL context
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+
+            # Connect and get certificate
+            with socket.create_connection((target, port), timeout=self.timeout) as sock:
+                with context.wrap_socket(sock, server_hostname=target) as ssock:
+                    cert_bin = ssock.getpeercert(binary_form=True)
+                    cert = OpenSSL.crypto.load_certificate(
+                        OpenSSL.crypto.FILETYPE_ASN1, cert_bin
+                    )
+
+                    cert_info["has_ssl"] = True
+                    cert_info["protocol"] = ssock.version()
+                    cert_info["cipher"] = ssock.cipher()
+
+                    # Parse certificate
+                    self._parse_certificate(cert, cert_info, findings)
+
+        except Exception as e:
+            cert_info["error"] = str(e)
+
+        return cert_info
+
+    def _parse_certificate(
+        self,
+        cert: OpenSSL.crypto.X509,
+        cert_info: Dict[str, Any],
+        findings: List[Dict[str, Any]]
+    ):
+        """Parse certificate and check for issues."""
+
+        # Subject information
+        subject = cert.get_subject()
+        cert_info["subject"] = {
+            "common_name": subject.CN if hasattr(subject, "CN") else None,
+            "organization": subject.O if hasattr(subject, "O") else None,
+            "country": subject.C if hasattr(subject, "C") else None,
+        }
+
+        # Issuer information
+        issuer = cert.get_issuer()
+        cert_info["issuer"] = {
+            "common_name": issuer.CN if hasattr(issuer, "CN") else None,
+            "organization": issuer.O if hasattr(issuer, "O") else None,
+        }
+
+        # Validity period
+        not_before = datetime.strptime(
+            cert.get_notBefore().decode('ascii'), '%Y%m%d%H%M%SZ'
+        )
+        not_after = datetime.strptime(
+            cert.get_notAfter().decode('ascii'), '%Y%m%d%H%M%SZ'
+        )
+
+        cert_info["valid_from"] = not_before.isoformat()
+        cert_info["valid_until"] = not_after.isoformat()
+
+        # Check expiration
+        days_until_expiry = (not_after - datetime.now()).days
+        cert_info["days_until_expiry"] = days_until_expiry
+
+        if days_until_expiry < 0:
+            findings.append({
+                "title": "Expired SSL Certificate",
+                "severity": "critical",
+                "description": f"SSL certificate expired {abs(days_until_expiry)} days ago.",
+                "recommendation": "Renew the SSL certificate immediately.",
+                "category": "ssl"
+            })
+        elif days_until_expiry < 30:
+            findings.append({
+                "title": "SSL Certificate Expiring Soon",
+                "severity": "high",
+                "description": f"SSL certificate will expire in {days_until_expiry} days.",
+                "recommendation": "Renew the SSL certificate as soon as possible.",
+                "category": "ssl"
+            })
+        elif days_until_expiry < 60:
+            findings.append({
+                "title": "SSL Certificate Expiring",
+                "severity": "medium",
+                "description": f"SSL certificate will expire in {days_until_expiry} days.",
+                "recommendation": "Plan to renew the SSL certificate soon.",
+                "category": "ssl"
+            })
+
+        # Check if self-signed
+        if cert.get_issuer() == cert.get_subject():
+            cert_info["self_signed"] = True
+            findings.append({
+                "title": "Self-Signed SSL Certificate",
+                "severity": "medium",
+                "description": "The SSL certificate is self-signed, which will cause browser warnings.",
+                "recommendation": "Use a certificate from a trusted Certificate Authority.",
+                "category": "ssl"
+            })
+        else:
+            cert_info["self_signed"] = False
+
+        # Check signature algorithm
+        sig_alg = cert.get_signature_algorithm().decode('ascii')
+        cert_info["signature_algorithm"] = sig_alg
+
+        if 'sha1' in sig_alg.lower():
+            findings.append({
+                "title": "Weak Certificate Signature Algorithm",
+                "severity": "medium",
+                "description": f"Certificate uses weak signature algorithm: {sig_alg}",
+                "recommendation": "Use SHA-256 or stronger signature algorithm.",
+                "category": "ssl"
+            })
+
+        # Check key size
+        pubkey = cert.get_pubkey()
+        key_size = pubkey.bits()
+        cert_info["key_size"] = key_size
+
+        if key_size < 2048:
+            findings.append({
+                "title": "Weak SSL Key Size",
+                "severity": "high",
+                "description": f"Certificate uses weak key size: {key_size} bits",
+                "recommendation": "Use at least 2048-bit RSA keys or 256-bit ECDSA keys.",
+                "category": "ssl"
+            })
+
+        # Check for Subject Alternative Names (SAN)
+        try:
+            san_extension = None
+            for i in range(cert.get_extension_count()):
+                ext = cert.get_extension(i)
+                if ext.get_short_name() == b'subjectAltName':
+                    san_extension = str(ext)
+                    break
+
+            if san_extension:
+                cert_info["san"] = san_extension
+        except Exception:
+            pass
+
+        # Serial number
+        cert_info["serial_number"] = cert.get_serial_number()
+
+        # Version
+        cert_info["version"] = cert.get_version() + 1

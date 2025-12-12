@@ -39,6 +39,9 @@ try:
 except Exception:
     _HAS_CSV = False
 
+# AI summary writer
+from icebreaker.writers.ai_summary import AISummaryWriter
+
 
 console = Console()
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="Icebreaker — first-strike recon scanner")
@@ -55,6 +58,8 @@ def main(
     timeout: float = typer.Option(1.5, help="Per-request timeout (seconds)"),
     insecure: bool = typer.Option(False, "--insecure", "-k", help="Disable SSL certificate verification"),
     ports: str | None = typer.Option(None, "--ports", "-p", help="Ports to scan (e.g., '80,443' or '8000-8100' or 'top100')"),
+    ai: str | None = typer.Option(None, "--ai", help="Enable AI analysis (providers: ollama, anthropic/claude, openai)"),
+    ai_model: str | None = typer.Option(None, "--ai-model", help="AI model to use (provider-specific, e.g., 'llama3.2', 'claude-3-5-sonnet-20241022', 'gpt-4o')"),
 ):
     """
     Single-command entrypoint. Example:
@@ -104,6 +109,17 @@ def main(
     writers = [JSONLWriter(), MarkdownWriter(), SARIFWriter(), HTMLWriter()]
     if _HAS_CSV:
         writers.append(CSVWriter())     # optional
+
+    # Add AI summary writer if requested
+    if ai:
+        try:
+            ai_writer = AISummaryWriter(ai_provider=ai, ai_model=ai_model)
+            writers.append(ai_writer)
+            if not quiet:
+                console.print(f"[cyan]AI Analysis enabled:[/cyan] {ai} ({ai_model or 'default model'})")
+        except Exception as e:
+            console.print(f"[yellow]Warning:[/yellow] Could not initialize AI writer: {e}")
+            console.print("[yellow]Continuing without AI analysis...[/yellow]")
 
     orch = Orchestrator(
         ctx,

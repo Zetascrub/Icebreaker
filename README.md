@@ -32,9 +32,11 @@ First-strike recon scanner with enterprise-grade features, comprehensive analyze
   - **HTML** - Interactive report with filtering and charts
   - **JSON Lines** - Machine-readable findings
   - **Markdown** - Human-readable summary
+  - **AI Executive Summary** - AI-powered analysis and recommendations
 - 📈 **Risk Scoring** - CVSS-like prioritization (0-10 scale)
 - 🎯 **Confidence Ratings** - False positive filtering
 - 🏷️ **Finding Tags** - Easy categorization
+- 🤖 **AI Analysis** - Automated executive summaries with Ollama, Claude, or OpenAI
 
 ## 🚀 Quickstart
 
@@ -87,6 +89,43 @@ icebreaker -t scope.txt --quiet
 icebreaker -t scope.txt --timeout 3.0
 ```
 
+### AI-Powered Analysis
+
+Icebreaker can generate AI-powered executive summaries of scan results using various AI providers:
+
+```bash
+# Using Ollama (local, free)
+icebreaker -t scope.txt --ai ollama
+
+# Using Ollama with specific model
+icebreaker -t scope.txt --ai ollama --ai-model llama3.2
+
+# Using Claude (API key required)
+export ANTHROPIC_API_KEY="your-api-key"
+icebreaker -t scope.txt --ai claude
+
+# Using Claude with specific model
+icebreaker -t scope.txt --ai anthropic --ai-model claude-3-5-sonnet-20241022
+
+# Using OpenAI (API key required)
+export OPENAI_API_KEY="your-api-key"
+icebreaker -t scope.txt --ai openai --ai-model gpt-4o
+```
+
+**AI Executive Summary includes:**
+- High-level overview of security posture
+- Key findings and critical issues highlighted
+- Risk assessment (Critical/High/Medium/Low)
+- Prioritized, actionable recommendations
+- Technical details for security teams
+
+**Supported AI Providers:**
+- **Ollama** - Free, local LLM inference (requires Ollama running locally)
+- **Anthropic Claude** - Requires `ANTHROPIC_API_KEY` environment variable
+- **OpenAI** - Requires `OPENAI_API_KEY` environment variable
+
+The AI summary is saved as `ai_executive_summary.md` in the output directory.
+
 ## 📊 Output Formats
 
 ### Directory Structure
@@ -94,11 +133,12 @@ icebreaker -t scope.txt --timeout 3.0
 ```
 runs/
 └── 20241211T123456Z-a1b2c3-quick/
-    ├── run.json              # Run metadata
-    ├── findings.jsonl        # Machine-readable findings
-    ├── summary.md            # Markdown summary
-    ├── results.sarif         # SARIF for GitHub Security
-    ├── report.html           # Interactive HTML report
+    ├── run.json                    # Run metadata
+    ├── findings.jsonl              # Machine-readable findings
+    ├── summary.md                  # Markdown summary
+    ├── results.sarif               # SARIF for GitHub Security
+    ├── report.html                 # Interactive HTML report
+    ├── ai_executive_summary.md     # AI-generated executive summary (if --ai enabled)
     └── targets/
         └── example.com/
             └── services/
@@ -144,6 +184,8 @@ Open `report.html` in your browser for:
 | `--timeout` | | `1.5` | Per-request timeout (seconds) |
 | `--insecure` | `-k` | `false` | Disable SSL verification |
 | `--ports` | `-p` | `22,80,443` | Ports to scan |
+| `--ai` | | `none` | AI provider (ollama, anthropic/claude, openai) |
+| `--ai-model` | | provider default | AI model to use |
 
 ### Port Specification
 

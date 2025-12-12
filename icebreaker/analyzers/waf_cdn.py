@@ -4,6 +4,56 @@ WAF and CDN detection analyzer.
 from __future__ import annotations
 import httpx
 from typing import Dict, Any, List, Optional
+from icebreaker.core.models import RunContext, Service, Finding
+
+
+class WAFCDNDetector:
+    """Icebreaker analyzer for WAF and CDN detection."""
+
+    id = "waf_cdn"
+    consumes = ["service:http", "service:https"]
+
+    async def run(self, ctx: RunContext, service: Service) -> List[Finding]:
+        """
+        Detect WAF and CDN for a service.
+
+        Args:
+            ctx: Run context
+            service: Service to analyze
+
+        Returns:
+            List of findings
+        """
+        findings = []
+        analyzer = WAFCDNAnalyzer()
+
+        try:
+            use_https = service.name == "https" or service.port == 443
+            result = analyzer.analyze(service.target, service.port, use_https)
+
+            for finding_dict in result.get("findings", []):
+                findings.append(Finding(
+                    id=f"waf_cdn.{finding_dict.get('category', 'misc')}.{service.target}.{service.port}",
+                    title=finding_dict["title"],
+                    severity=finding_dict["severity"].upper(),
+                    target=service.target,
+                    port=service.port,
+                    tags=[finding_dict.get("category", "waf"), "security"],
+                    details={
+                        "description": finding_dict["description"],
+                        "waf_detected": result.get("waf_detected", []),
+                        "cdn_detected": result.get("cdn_detected", [])
+                    },
+                    recommendation=finding_dict.get("recommendation")
+                ))
+
+            analyzer.close()
+
+        except Exception as e:
+            # Silently skip if analysis fails
+            pass
+
+        return findings
 
 
 class WAFCDNAnalyzer:

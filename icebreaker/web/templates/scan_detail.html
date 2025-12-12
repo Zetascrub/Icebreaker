@@ -122,6 +122,9 @@
             // Load findings
             await loadFindings();
 
+            // Load services
+            await loadServices();
+
             // Load config
             loadConfiguration();
 
@@ -170,6 +173,52 @@
         } catch (error) {
             console.error('Error loading findings:', error);
             showToast('Error loading findings', 'error');
+        }
+    }
+
+    async function loadServices() {
+        try {
+            const response = await fetch(`/api/scans/${scanId}/services`);
+            const services = await response.json();
+
+            const list = document.getElementById('services-list');
+            if (services.length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-500 py-8">No services discovered</p>';
+                return;
+            }
+
+            list.innerHTML = `
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Port</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${services.map(service => `
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${service.target}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${service.port}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${service.name || 'Unknown'}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">
+                                        ${service.meta && Object.keys(service.meta).length > 0 ?
+                                            Object.entries(service.meta).map(([k, v]) => `<span class="mr-2"><strong>${k}:</strong> ${v}</span>`).join('') :
+                                            '-'}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+        } catch (error) {
+            console.error('Error loading services:', error);
+            showToast('Error loading services', 'error');
         }
     }
 

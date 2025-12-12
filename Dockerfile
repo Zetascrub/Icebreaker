@@ -17,8 +17,9 @@ COPY icebreaker /app/icebreaker/
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -e .
 
-# Create directories for data
-RUN mkdir -p /app/runs
+# Create directories for data and set permissions
+RUN mkdir -p /app/runs /data && \
+    chmod 777 /data
 
 # Expose port
 EXPOSE 8000

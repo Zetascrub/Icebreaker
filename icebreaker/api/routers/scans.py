@@ -33,6 +33,7 @@ class ScanCreate(BaseModel):
     svc_conc: int = 256
     timeout: float = 1.5
     insecure: bool = False
+    skip_ping_sweep: bool = False  # Skip ICMP ping sweep (useful for networks that block ICMP)
     ai_provider: Optional[str] = None
     ai_model: Optional[str] = None
     ai_base_url: Optional[str] = None
@@ -52,6 +53,12 @@ class ScanResponse(BaseModel):
     services_found: int
     findings_count: int
     settings: dict
+    # Progress tracking fields
+    phase: Optional[str] = None
+    progress_percentage: Optional[int] = 0
+    alive_hosts: Optional[int] = 0
+    current_target: Optional[str] = None
+    ports_scanned: Optional[int] = 0
 
     class Config:
         from_attributes = True
@@ -107,6 +114,7 @@ async def create_scan(
             "svc_conc": scan_request.svc_conc,
             "timeout": scan_request.timeout,
             "insecure": scan_request.insecure,
+            "skip_ping_sweep": scan_request.skip_ping_sweep,
             "ai_provider": scan_request.ai_provider,
             "ai_model": scan_request.ai_model,
             "ai_base_url": scan_request.ai_base_url,
@@ -207,6 +215,30 @@ async def get_scan_services(scan_id: int, db: Session = Depends(get_db)):
     """
     services = db.query(Service).filter(Service.scan_id == scan_id).all()
     return services
+
+
+@router.get("/scans/{scan_id}/targets")
+async def get_scan_targets(scan_id: int, db: Session = Depends(get_db)):
+    """
+    Get all targets in a scan with their alive status.
+
+    Args:
+        scan_id: Scan ID
+        db: Database session
+
+    Returns:
+        List of targets with alive status
+    """
+    targets = db.query(Target).filter(Target.scan_id == scan_id).all()
+    return [
+        {
+            "id": t.id,
+            "address": t.address,
+            "is_alive": t.is_alive,
+            "labels": t.labels
+        }
+        for t in targets
+    ]
 
 
 @router.delete("/scans/{scan_id}")
@@ -527,6 +559,7 @@ async def execute_scan(scan_id: int):
 
         # Update status to running
         scan.status = ScanStatus.RUNNING
+        scan.progress_percentage = 0
         db.commit()
 
         # Send WebSocket update
@@ -534,6 +567,118 @@ async def execute_scan(scan_id: int):
             "type": "scan_status",
             "data": {"status": "running", "message": "Scan started"}
         })
+
+        # Build run context and settings
+        settings = scan.settings
+        skip_ping_sweep = settings.get('skip_ping_sweep', False)
+
+        # Phase 1: Ping Sweep (optional)
+        alive_targets = targets  # Default to all targets
+        target_addresses = [t.address for t in targets]
+
+        if not skip_ping_sweep:
+            scan.phase = "ping_sweep"
+            db.commit()
+
+            from icebreaker.detectors.ping_sweep import PingSweep
+
+            await manager.send_update(scan_id, {
+                "type": "scan_progress",
+                "data": {
+                    "phase": "ping_sweep",
+                    "progress": 0,
+                    "message": f"Performing ping sweep on {len(target_addresses)} targets..."
+                }
+            })
+
+            # Create progress callback for ping sweep
+            async def ping_progress_callback(current, total):
+                progress = int((current / total) * 20)  # Ping sweep is 0-20% of total
+                scan.progress_percentage = progress
+                db.commit()
+
+                await manager.send_update(scan_id, {
+                    "type": "scan_progress",
+                    "data": {
+                        "phase": "ping_sweep",
+                        "progress": progress,
+                        "current": current,
+                        "total": total,
+                        "message": f"Pinging targets ({current}/{total})..."
+                    }
+                })
+
+            # Perform ping sweep
+            ping_sweeper = PingSweep(timeout=2.0, max_concurrent=100)
+            ping_results = await ping_sweeper.sweep(target_addresses, progress_callback=ping_progress_callback)
+
+            # Update target records with ping results
+            alive_count = 0
+            for target in targets:
+                is_alive = ping_results.get(target.address, False)
+                target.is_alive = is_alive
+                if is_alive:
+                    alive_count += 1
+
+            scan.alive_hosts = alive_count
+            scan.progress_percentage = 20
+            db.commit()
+
+            await manager.send_update(scan_id, {
+                "type": "scan_progress",
+                "data": {
+                    "phase": "ping_sweep",
+                    "progress": 20,
+                    "alive_hosts": alive_count,
+                    "total_hosts": len(target_addresses),
+                    "message": f"Ping sweep complete: {alive_count}/{len(target_addresses)} hosts alive"
+                }
+            })
+
+            # Only scan alive hosts (skip if none responded)
+            if alive_count == 0:
+                scan.status = ScanStatus.COMPLETED
+                scan.completed_at = datetime.utcnow()
+                scan.duration_seconds = int((scan.completed_at - scan.started_at).total_seconds())
+                scan.phase = "completed"
+                scan.progress_percentage = 100
+                db.commit()
+
+                await manager.send_update(scan_id, {
+                    "type": "scan_complete",
+                    "data": {
+                        "status": "completed",
+                        "services_found": 0,
+                        "findings_count": 0,
+                        "duration": scan.duration_seconds,
+                        "message": "No alive hosts found (try enabling 'Skip Ping Sweep' if network blocks ICMP)"
+                    }
+                })
+                return
+
+            # Filter to only alive targets
+            alive_targets = [t for t in targets if t.is_alive]
+        else:
+            # Skip ping sweep - assume all targets are alive
+            scan.phase = "port_scan"
+            scan.progress_percentage = 0
+            db.commit()
+
+            await manager.send_update(scan_id, {
+                "type": "scan_progress",
+                "data": {
+                    "phase": "port_scan",
+                    "progress": 0,
+                    "message": f"Skipping ping sweep, scanning all {len(targets)} targets..."
+                }
+            })
+
+            # Mark all targets as alive (not checked)
+            for target in targets:
+                target.is_alive = None  # None indicates ping sweep was skipped
+
+            scan.alive_hosts = len(targets)
+            db.commit()
 
         # Build run context
         settings = scan.settings
@@ -625,25 +770,67 @@ async def execute_scan(scan_id: int):
             quiet=True
         )
 
-        # Convert targets to core Target objects
-        core_targets = [CoreTarget(address=t.address) for t in targets]
+        # Convert alive targets to core Target objects
+        core_targets = [CoreTarget(address=t.address) for t in alive_targets]
 
-        # Run scan
+        # Phase 2: Port Scanning
+        # Calculate progress percentages based on whether ping sweep ran
+        if skip_ping_sweep:
+            port_scan_start, port_scan_end = 0, 50
+            analysis_start, analysis_end = 50, 80
+            writing_start, writing_end = 80, 95
+        else:
+            port_scan_start, port_scan_end = 20, 60
+            analysis_start, analysis_end = 60, 85
+            writing_start, writing_end = 85, 95
+
+        scan.phase = "port_scan"
+        scan.progress_percentage = port_scan_start
+        db.commit()
+
         await manager.send_update(scan_id, {
             "type": "scan_progress",
-            "data": {"stage": "discovery", "message": "Discovering services..."}
+            "data": {
+                "phase": "port_scan",
+                "progress": port_scan_start,
+                "message": f"Discovering services on {len(core_targets)} hosts..."
+            }
         })
         discovered_services = await orch.discover(core_targets)
 
-        await manager.send_update(scan_id, {
-            "type": "scan_progress",
-            "data": {"stage": "analysis", "message": f"Analyzing {len(discovered_services)} services..."}
-        })
-        discovered_findings = await orch.analyse(discovered_services)
+        scan.progress_percentage = port_scan_end
+        db.commit()
+
+        # Phase 3: Analysis
+        scan.phase = "analysis"
+        scan.progress_percentage = analysis_start
+        db.commit()
 
         await manager.send_update(scan_id, {
             "type": "scan_progress",
-            "data": {"stage": "writing", "message": "Generating reports..."}
+            "data": {
+                "phase": "analysis",
+                "progress": analysis_start,
+                "message": f"Analyzing {len(discovered_services)} services..."
+            }
+        })
+        discovered_findings = await orch.analyse(discovered_services)
+
+        scan.progress_percentage = analysis_end
+        db.commit()
+
+        # Phase 4: Writing Reports
+        scan.phase = "writing"
+        scan.progress_percentage = writing_start
+        db.commit()
+
+        await manager.send_update(scan_id, {
+            "type": "scan_progress",
+            "data": {
+                "phase": "writing",
+                "progress": writing_start,
+                "message": "Generating reports..."
+            }
         })
         orch.write_outputs(discovered_services, discovered_findings)
 
@@ -678,6 +865,8 @@ async def execute_scan(scan_id: int):
 
         # Update scan with results
         scan.status = ScanStatus.COMPLETED
+        scan.phase = "completed"
+        scan.progress_percentage = 100
         scan.completed_at = datetime.utcnow()
         scan.duration_seconds = int((scan.completed_at - scan.started_at).total_seconds())
         scan.services_found = len(discovered_services)

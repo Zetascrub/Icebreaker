@@ -42,6 +42,13 @@ class Scan(Base):
     services_found = Column(Integer, default=0)
     findings_count = Column(Integer, default=0)
 
+    # Progress tracking
+    phase = Column(String(50), default="initializing")  # initializing, ping_sweep, port_scan, analysis, completed
+    progress_percentage = Column(Integer, default=0)  # 0-100
+    alive_hosts = Column(Integer, default=0)  # Hosts responding to ping
+    current_target = Column(String(255), nullable=True)  # Currently scanning target
+    ports_scanned = Column(Integer, default=0)  # Total ports scanned so far
+
     # Relationships
     targets = relationship("Target", back_populates="scan", cascade="all, delete-orphan")
     services = relationship("Service", back_populates="scan", cascade="all, delete-orphan")
@@ -59,6 +66,7 @@ class Target(Base):
     scan_id = Column(Integer, ForeignKey("scans.id", ondelete="CASCADE"), nullable=False, index=True)
     address = Column(String(255), nullable=False)
     labels = Column(JSON, default=dict)
+    is_alive = Column(Boolean, default=None, nullable=True)  # True if responded to ping, False if not, None if not checked
 
     # Relationship
     scan = relationship("Scan", back_populates="targets")

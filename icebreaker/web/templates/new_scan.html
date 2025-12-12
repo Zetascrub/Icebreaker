@@ -78,12 +78,22 @@
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
                 </div>
 
-                <div class="flex items-center">
-                    <input type="checkbox" id="insecure" name="insecure"
-                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                    <label for="insecure" class="ml-2 block text-sm text-gray-900">
-                        Disable SSL verification (insecure)
-                    </label>
+                <div class="space-y-2">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="insecure" name="insecure"
+                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                        <label for="insecure" class="ml-2 block text-sm text-gray-900">
+                            Disable SSL verification (insecure)
+                        </label>
+                    </div>
+
+                    <div class="flex items-center">
+                        <input type="checkbox" id="skip_ping_sweep" name="skip_ping_sweep"
+                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                        <label for="skip_ping_sweep" class="ml-2 block text-sm text-gray-900">
+                            Skip ping sweep (scan all targets, useful if ICMP is blocked)
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -171,6 +181,7 @@
             svc_conc: parseInt(formData.get('svc_conc')),
             timeout: parseFloat(formData.get('timeout')),
             insecure: formData.get('insecure') === 'on',
+            skip_ping_sweep: formData.get('skip_ping_sweep') === 'on',
             ai_provider: formData.get('ai_provider') || null,
             ai_model: formData.get('ai_model') || null,
             ai_base_url: formData.get('ai_base_url') || null

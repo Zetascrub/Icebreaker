@@ -17,6 +17,7 @@ from icebreaker.db.database import get_db
 from icebreaker.db.models import Scan, Target, Service, Finding, ScanStatus
 from icebreaker.core.models import RunContext, Target as CoreTarget
 from icebreaker.engine.orchestrator import Orchestrator
+from icebreaker.core.network_utils import expand_targets
 
 router = APIRouter()
 
@@ -89,6 +90,9 @@ async def create_scan(
     Returns:
         Created scan object
     """
+    # Expand targets to handle CIDR notation (e.g., 192.168.1.0/24)
+    expanded_targets = expand_targets(scan_request.targets)
+
     # Create scan record
     scan = Scan(
         run_id=f"web-{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}",
@@ -96,7 +100,7 @@ async def create_scan(
         status=ScanStatus.PENDING,
         preset=scan_request.preset,
         started_at=datetime.utcnow(),
-        target_count=len(scan_request.targets),
+        target_count=len(expanded_targets),
         settings={
             "ports": scan_request.ports,
             "host_conc": scan_request.host_conc,
@@ -113,8 +117,8 @@ async def create_scan(
     db.commit()
     db.refresh(scan)
 
-    # Create target records
-    for target_addr in scan_request.targets:
+    # Create target records from expanded list
+    for target_addr in expanded_targets:
         target = Target(scan_id=scan.id, address=target_addr)
         db.add(target)
 
@@ -559,9 +563,10 @@ async def execute_scan(scan_id: int):
         # Set up detectors
         timeout = settings.get('timeout', 1.5)
         insecure = settings.get('insecure', False)
+        host_conc = settings.get('host_conc', 128)
 
         detectors = [
-            TCPProbe(timeout=timeout, quiet=True, ports=port_list),
+            TCPProbe(timeout=timeout, quiet=True, ports=port_list, max_concurrent=host_conc),
             BannerGrab(timeout=timeout, quiet=True, insecure=insecure),
         ]
 

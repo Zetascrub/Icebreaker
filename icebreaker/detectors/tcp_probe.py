@@ -33,11 +33,13 @@ class TCPProbe:
         timeout: float = 1.5,
         quiet: bool = False,
         rate_limit: Optional[float] = None,
+        max_concurrent: int = 128,
     ):
         self.ports = list(ports or [22, 80, 443])
         self.timeout = timeout
         self.quiet = quiet
         self.rate_limit = rate_limit
+        self.max_concurrent = max_concurrent
 
     async def _try_connect(self, host: str, port: int) -> bool:
         try:
@@ -55,7 +57,7 @@ class TCPProbe:
     async def run(self, ctx: RunContext, targets: List[Target]) -> Iterable[Service]:
         services: list[Service] = []
         # Use rate limiter for both concurrency and rate control
-        limiter = RateLimiter(max_concurrent=256, rate_per_second=self.rate_limit)
+        limiter = RateLimiter(max_concurrent=self.max_concurrent, rate_per_second=self.rate_limit)
 
         async def probe_one(host: str, port: int):
             async with limiter:

@@ -1,7 +1,7 @@
 from __future__ import annotations
+import asyncio
 from typing import List
 from icebreaker.core.models import RunContext, Service, Finding
-import socket
 
 class SSHBanner:
     id = "ssh_banner"
@@ -9,12 +9,22 @@ class SSHBanner:
 
     async def run(self, ctx: RunContext, service: Service) -> List[Finding]:
         out: list[Finding] = []
+        banner = ""
         try:
-            with socket.create_connection((service.target, service.port), timeout=1.0) as s:
-                s.settimeout(1.0)
-                banner = s.recv(256).decode(errors="ignore").strip()  # e.g. SSH-2.0-OpenSSH_9.6p1 Debian-3
+            # Use async socket operations instead of blocking
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(service.target, service.port),
+                timeout=1.0
+            )
+            # Read SSH banner (SSH servers send banner immediately)
+            banner_bytes = await asyncio.wait_for(reader.read(256), timeout=1.0)
+            banner = banner_bytes.decode(errors="ignore").strip()
+            # Clean up connection
+            writer.close()
+            await writer.wait_closed()
         except Exception:
-            banner = ""
+            # Silently handle connection errors, banner remains empty
+            pass
 
         if banner:
             out.append(Finding(

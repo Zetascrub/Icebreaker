@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -9,6 +10,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from icebreaker.core.models import Finding, RunContext, Service, Target
+from icebreaker.core.risk_scoring import prioritize_findings
 
 console = Console()
 
@@ -72,17 +74,36 @@ class Orchestrator:
             console.print(f"[bold magenta][SCAN][/bold magenta] analysing {len(services)} services")
 
         findings: List[Finding] = []
-        for analyzer in self.analyzers:
-            for svc in services:
-                try:
-                    consumes = getattr(analyzer, "consumes", None)
-                    if consumes and svc.name and f"service:{svc.name}" not in consumes:
-                        continue
-                    results = await analyzer.run(self.ctx, svc)
-                    findings.extend(results)
-                except Exception as e:  # keep the engine resilient in 0.1
-                    if not self.quiet:
-                        console.print(f"[red][ERROR][/red] {analyzer.id} on {svc.target}:{svc.port} -> {e}")
+
+        async def run_analyzer_on_service(analyzer, svc: Service) -> List[Finding]:
+            """Run a single analyzer on a single service."""
+            try:
+                consumes = getattr(analyzer, "consumes", None)
+                if consumes and svc.name and f"service:{svc.name}" not in consumes:
+                    return []
+                results = await analyzer.run(self.ctx, svc)
+                return results
+            except Exception as e:  # keep the engine resilient
+                if not self.quiet:
+                    console.print(f"[red][ERROR][/red] {analyzer.id} on {svc.target}:{svc.port} -> {e}")
+                return []
+
+        # Build list of all analyzer/service combinations to run in parallel
+        tasks = []
+        for svc in services:
+            for analyzer in self.analyzers:
+                tasks.append(run_analyzer_on_service(analyzer, svc))
+
+        # Run all analyzers in parallel with concurrency control
+        results = await asyncio.gather(*tasks, return_exceptions=False)
+
+        # Flatten results
+        for result in results:
+            findings.extend(result)
+
+        # Apply risk scoring and prioritization
+        findings = prioritize_findings(findings)
+
         return findings
 
     def write_outputs(self, services: List[Service], findings: List[Finding]) -> None:

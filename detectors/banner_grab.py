@@ -33,9 +33,10 @@ class BannerGrab:
 
     id = "banner_grab"
 
-    def __init__(self, timeout: float = 1.5, quiet: bool = False):
+    def __init__(self, timeout: float = 1.5, quiet: bool = False, insecure: bool = False):
         self.timeout = timeout
         self.quiet = quiet
+        self.insecure = insecure
 
     async def _grab_http(self, client: httpx.AsyncClient, host: str) -> Tuple[bool, dict]:
         try:
@@ -45,6 +46,14 @@ class BannerGrab:
                 "title": _extract_title(r.text or ""),
                 "status": r.status_code,
                 "location": r.headers.get("location", ""),
+                # Security headers
+                "content-security-policy": r.headers.get("content-security-policy", ""),
+                "x-frame-options": r.headers.get("x-frame-options", ""),
+                "x-content-type-options": r.headers.get("x-content-type-options", ""),
+                "x-xss-protection": r.headers.get("x-xss-protection", ""),
+                "referrer-policy": r.headers.get("referrer-policy", ""),
+                "permissions-policy": r.headers.get("permissions-policy", ""),
+                "feature-policy": r.headers.get("feature-policy", ""),
             }
             return True, meta
         except Exception:
@@ -58,6 +67,14 @@ class BannerGrab:
                 "title": _extract_title(r.text or ""),
                 "status": r.status_code,
                 "hsts": r.headers.get("strict-transport-security", ""),
+                # Security headers
+                "content-security-policy": r.headers.get("content-security-policy", ""),
+                "x-frame-options": r.headers.get("x-frame-options", ""),
+                "x-content-type-options": r.headers.get("x-content-type-options", ""),
+                "x-xss-protection": r.headers.get("x-xss-protection", ""),
+                "referrer-policy": r.headers.get("referrer-policy", ""),
+                "permissions-policy": r.headers.get("permissions-policy", ""),
+                "feature-policy": r.headers.get("feature-policy", ""),
             }
             return True, meta
         except Exception:
@@ -67,8 +84,12 @@ class BannerGrab:
         svcs: list[Service] = []
         quiet = (ctx.settings or {}).get("quiet", self.quiet)
 
-        # One client for the whole pass; disable cert verify to avoid local appliances moaning
-        async with httpx.AsyncClient(timeout=self.timeout, verify=False) as client:
+        # Warn if SSL verification is disabled
+        if self.insecure and not quiet:
+            console.print("[yellow][WARN][/yellow] SSL verification disabled (--insecure flag)")
+
+        # One client for the whole pass
+        async with httpx.AsyncClient(timeout=self.timeout, verify=not self.insecure) as client:
             for t in targets:
                 ok80, meta80 = await self._grab_http(client, t.address)
                 if ok80:

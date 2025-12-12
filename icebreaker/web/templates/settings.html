@@ -3,108 +3,682 @@
 {% block title %}Settings - Icebreaker{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-6xl mx-auto space-y-6">
     <!-- Page Header -->
     <div>
         <h1 class="text-3xl font-bold text-gray-900">Settings</h1>
-        <p class="mt-2 text-sm text-gray-600">Manage scan profiles and configurations</p>
+        <p class="mt-2 text-sm text-gray-600">Configure Icebreaker for your security scanning needs</p>
     </div>
 
-    <!-- Scan Profiles -->
-    <div class="bg-white shadow rounded-lg p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Scan Profiles</h3>
-        <div id="profiles-list">
-            <div class="text-center py-4">
-                <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p class="mt-2 text-sm text-gray-500">Loading profiles...</p>
+    <!-- Tabs -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex overflow-x-auto" aria-label="Tabs">
+                <button onclick="showTab('port-presets')" id="tab-port-presets" class="tab-button border-b-2 border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-6 text-sm font-medium">
+                    Port Presets
+                </button>
+                <button onclick="showTab('ai-services')" id="tab-ai-services" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-6 text-sm font-medium">
+                    AI Services
+                </button>
+                <button onclick="showTab('scan-defaults')" id="tab-scan-defaults" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-6 text-sm font-medium">
+                    Scan Defaults
+                </button>
+                <button onclick="showTab('email')" id="tab-email" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-6 text-sm font-medium">
+                    Email/SMTP
+                </button>
+                <button onclick="showTab('cve')" id="tab-cve" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-6 text-sm font-medium">
+                    CVE Settings
+                </button>
+                <button onclick="showTab('retention')" id="tab-retention" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-6 text-sm font-medium">
+                    Retention
+                </button>
+                <button onclick="showTab('about')" id="tab-about" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-6 text-sm font-medium">
+                    About
+                </button>
+            </nav>
+        </div>
+
+        <div class="p-6">
+            <!-- Port Presets Tab -->
+            <div id="port-presets-content" class="tab-content">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Custom Port Presets</h3>
+                    <button onclick="showAddPresetModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">
+                        + Add Preset
+                    </button>
+                </div>
+                <div id="port-presets-list">
+                    <p class="text-gray-500 text-sm">Loading...</p>
+                </div>
+            </div>
+
+            <!-- AI Services Tab -->
+            <div id="ai-services-content" class="tab-content hidden">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">AI Service Configuration</h3>
+                <p class="text-sm text-gray-600 mb-4">Configure API keys and endpoints for AI-powered analysis</p>
+
+                <div class="space-y-4">
+                    <!-- Ollama -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="text-md font-medium text-gray-900 mb-3">Ollama</h4>
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Base URL</label>
+                                <input type="text" id="ollama-base-url" placeholder="http://localhost:11434" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Default Model</label>
+                                <input type="text" id="ollama-model" placeholder="llama3.2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            </div>
+                        </div>
+                        <div class="mt-3 flex items-center">
+                            <input type="checkbox" id="ollama-enabled" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <label for="ollama-enabled" class="ml-2 text-sm text-gray-700">Enable Ollama</label>
+                        </div>
+                        <button onclick="saveAIService('ollama')" class="mt-3 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">
+                            Save Ollama Config
+                        </button>
+                    </div>
+
+                    <!-- Claude -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="text-md font-medium text-gray-900 mb-3">Claude (Anthropic)</h4>
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">API Key</label>
+                                <input type="password" id="claude-api-key" placeholder="sk-ant-..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Default Model</label>
+                                <input type="text" id="claude-model" placeholder="claude-3-sonnet-20240229" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            </div>
+                        </div>
+                        <div class="mt-3 flex items-center">
+                            <input type="checkbox" id="claude-enabled" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <label for="claude-enabled" class="ml-2 text-sm text-gray-700">Enable Claude</label>
+                        </div>
+                        <button onclick="saveAIService('claude')" class="mt-3 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">
+                            Save Claude Config
+                        </button>
+                    </div>
+
+                    <!-- OpenAI -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="text-md font-medium text-gray-900 mb-3">OpenAI</h4>
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">API Key</label>
+                                <input type="password" id="openai-api-key" placeholder="sk-..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Default Model</label>
+                                <input type="text" id="openai-model" placeholder="gpt-4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            </div>
+                        </div>
+                        <div class="mt-3 flex items-center">
+                            <input type="checkbox" id="openai-enabled" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <label for="openai-enabled" class="ml-2 text-sm text-gray-700">Enable OpenAI</label>
+                        </div>
+                        <button onclick="saveAIService('openai')" class="mt-3 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">
+                            Save OpenAI Config
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scan Defaults Tab -->
+            <div id="scan-defaults-content" class="tab-content hidden">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Default Scan Settings</h3>
+                <p class="text-sm text-gray-600 mb-4">Configure default values for new scans</p>
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Default Timeout (seconds)</label>
+                        <input type="number" id="default-timeout" value="1.5" step="0.1" min="0.5" max="30" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Default Host Concurrency</label>
+                        <input type="number" id="default-host-conc" value="128" min="1" max="512" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Default Service Concurrency</label>
+                        <input type="number" id="default-svc-conc" value="256" min="1" max="1024" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Default Preset</label>
+                        <select id="default-preset" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            <option value="quick">Quick</option>
+                            <option value="thorough">Thorough</option>
+                            <option value="deep">Deep</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="saveScanDefaults()" class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">
+                    Save Scan Defaults
+                </button>
+            </div>
+
+            <!-- Email/SMTP Tab -->
+            <div id="email-content" class="tab-content hidden">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Email / SMTP Configuration</h3>
+                <p class="text-sm text-gray-600 mb-4">Configure SMTP settings for email notifications</p>
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">SMTP Server</label>
+                        <input type="text" id="smtp-server" placeholder="smtp.gmail.com" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">SMTP Port</label>
+                        <input type="number" id="smtp-port" value="587" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Username</label>
+                        <input type="text" id="smtp-username" placeholder="your-email@example.com" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="smtp-password" placeholder="****" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">From Email</label>
+                        <input type="email" id="smtp-from-email" placeholder="icebreaker@example.com" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div class="flex items-center mt-6">
+                        <input type="checkbox" id="smtp-use-tls" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                        <label for="smtp-use-tls" class="ml-2 text-sm text-gray-700">Use TLS</label>
+                    </div>
+                </div>
+                <button onclick="saveSMTPConfig()" class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">
+                    Save SMTP Config
+                </button>
+            </div>
+
+            <!-- CVE Settings Tab -->
+            <div id="cve-content" class="tab-content hidden">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">CVE Database Configuration</h3>
+                <p class="text-sm text-gray-600 mb-4">Configure integration with the National Vulnerability Database</p>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">NVD API Key (Optional)</label>
+                        <input type="password" id="nvd-api-key" placeholder="Get from https://nvd.nist.gov/developers/request-an-api-key" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <p class="mt-1 text-xs text-gray-500">API key provides higher rate limits for CVE lookups</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Cache Duration (days)</label>
+                        <input type="number" id="cve-cache-duration" value="7" min="1" max="90" class="mt-1 block w-full md:w-1/2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="cve-auto-lookup" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                        <label for="cve-auto-lookup" class="ml-2 text-sm text-gray-700">Automatically lookup CVEs during scans</label>
+                    </div>
+                </div>
+                <button onclick="saveCVEConfig()" class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">
+                    Save CVE Config
+                </button>
+            </div>
+
+            <!-- Retention Policy Tab -->
+            <div id="retention-content" class="tab-content hidden">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Scan Retention Policy</h3>
+                <p class="text-sm text-gray-600 mb-4">Configure automatic cleanup of old scan data</p>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Retention Period (days)</label>
+                        <input type="number" id="retention-days" value="90" min="1" max="365" class="mt-1 block w-full md:w-1/2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <p class="mt-1 text-xs text-gray-500">Keep scan data for this many days</p>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="retention-auto-cleanup" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                        <label for="retention-auto-cleanup" class="ml-2 text-sm text-gray-700">Enable automatic cleanup</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="retention-keep-critical" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                        <label for="retention-keep-critical" class="ml-2 text-sm text-gray-700">Always keep scans with critical findings</label>
+                    </div>
+                </div>
+                <button onclick="saveRetentionPolicy()" class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">
+                    Save Retention Policy
+                </button>
+            </div>
+
+            <!-- About Tab -->
+            <div id="about-content" class="tab-content hidden">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">About Icebreaker</h3>
+                <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Version</dt>
+                        <dd class="mt-1 text-sm text-gray-900">0.2.0</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">API</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            <a href="/docs" target="_blank" class="text-indigo-600 hover:text-indigo-500">View Documentation</a>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">CLI Tool</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            <code class="px-2 py-1 bg-gray-100 rounded">icebreaker --help</code>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Database</dt>
+                        <dd class="mt-1 text-sm text-gray-900">icebreaker.db</dd>
+                    </div>
+                </dl>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- About -->
-    <div class="bg-white shadow rounded-lg p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">About Icebreaker</h3>
-        <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+<!-- Add Port Preset Modal -->
+<div id="preset-modal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Add Port Preset</h3>
+        <div class="space-y-4">
             <div>
-                <dt class="text-sm font-medium text-gray-500">Version</dt>
-                <dd class="mt-1 text-sm text-gray-900">0.2.0</dd>
+                <label class="block text-sm font-medium text-gray-700">Name</label>
+                <input type="text" id="preset-name" placeholder="Web Ports" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
             </div>
             <div>
-                <dt class="text-sm font-medium text-gray-500">API</dt>
-                <dd class="mt-1 text-sm text-gray-900">
-                    <a href="/docs" target="_blank" class="text-indigo-600 hover:text-indigo-500">View Documentation</a>
-                </dd>
+                <label class="block text-sm font-medium text-gray-700">Description</label>
+                <input type="text" id="preset-description" placeholder="Common web service ports" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
             </div>
             <div>
-                <dt class="text-sm font-medium text-gray-500">CLI Tool</dt>
-                <dd class="mt-1 text-sm text-gray-900">
-                    <code class="px-2 py-1 bg-gray-100 rounded">icebreaker --help</code>
-                </dd>
+                <label class="block text-sm font-medium text-gray-700">Ports</label>
+                <input type="text" id="preset-ports" placeholder="80,443,8000-8100,8443" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                <p class="mt-1 text-xs text-gray-500">Comma-separated ports or ranges (e.g., 80,443,8000-8100)</p>
             </div>
-            <div>
-                <dt class="text-sm font-medium text-gray-500">Database</dt>
-                <dd class="mt-1 text-sm text-gray-900">icebreaker.db</dd>
+            <div class="flex items-center">
+                <input type="checkbox" id="preset-is-default" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                <label for="preset-is-default" class="ml-2 text-sm text-gray-700">Set as default</label>
             </div>
-        </dl>
+        </div>
+        <div class="mt-6 flex justify-end space-x-3">
+            <button onclick="hideAddPresetModal()" class="bg-white text-gray-700 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-sm">
+                Cancel
+            </button>
+            <button onclick="savePortPreset()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">
+                Save Preset
+            </button>
+        </div>
     </div>
 </div>
 
 <script>
-    async function loadProfiles() {
-        try {
-            const response = await fetch('/api/profiles');
-            const profiles = await response.json();
+    let currentTab = 'port-presets';
 
-            const list = document.getElementById('profiles-list');
-            if (profiles.length === 0) {
-                list.innerHTML = '<p class="text-center text-gray-500 py-4">No saved profiles yet.</p>';
+    function showTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.remove('border-indigo-500', 'text-indigo-600');
+            btn.classList.add('border-transparent', 'text-gray-500');
+        });
+        document.getElementById(`tab-${tabName}`).classList.remove('border-transparent', 'text-gray-500');
+        document.getElementById(`tab-${tabName}`).classList.add('border-indigo-500', 'text-indigo-600');
+
+        // Update content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.add('hidden');
+        });
+        document.getElementById(`${tabName}-content`).classList.remove('hidden');
+        currentTab = tabName;
+
+        // Load data for the tab
+        if (tabName === 'port-presets') {
+            loadPortPresets();
+        } else if (tabName === 'ai-services') {
+            loadAIServices();
+        } else if (tabName === 'scan-defaults') {
+            loadScanDefaults();
+        } else if (tabName === 'email') {
+            loadSMTPConfig();
+        } else if (tabName === 'cve') {
+            loadCVEConfig();
+        } else if (tabName === 'retention') {
+            loadRetentionPolicy();
+        }
+    }
+
+    // Port Presets Functions
+    async function loadPortPresets() {
+        try {
+            const response = await fetch('/api/port-presets');
+            const presets = await response.json();
+
+            const list = document.getElementById('port-presets-list');
+            if (presets.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 text-sm">No custom port presets defined yet.</p>';
                 return;
             }
 
-            list.innerHTML = profiles.map(profile => `
-                <div class="border border-gray-200 rounded-lg p-4 mb-4">
+            list.innerHTML = presets.map(preset => `
+                <div class="border border-gray-200 rounded-lg p-4 mb-3">
                     <div class="flex items-start justify-between">
                         <div class="flex-1">
-                            <h4 class="text-sm font-medium text-gray-900">${profile.name}</h4>
-                            <p class="mt-1 text-sm text-gray-500">${profile.description || 'No description'}</p>
-                            ${profile.is_default ? '<span class="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Default</span>' : ''}
+                            <h4 class="text-sm font-medium text-gray-900">${preset.name}</h4>
+                            <p class="mt-1 text-xs text-gray-500">${preset.description || 'No description'}</p>
+                            <p class="mt-1 text-xs text-gray-700"><strong>Ports:</strong> ${preset.ports}</p>
+                            ${preset.is_default ? '<span class="mt-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Default</span>' : ''}
                         </div>
-                        <button onclick="deleteProfile(${profile.id})" class="text-red-600 hover:text-red-700 text-sm">
+                        <button onclick="deletePortPreset(${preset.id})" class="text-red-600 hover:text-red-700 text-sm">
                             Delete
                         </button>
                     </div>
                 </div>
             `).join('');
         } catch (error) {
-            console.error('Error loading profiles:', error);
-            showToast('Error loading profiles', 'error');
+            console.error('Error loading port presets:', error);
+            showToast('Error loading port presets', 'error');
         }
     }
 
-    async function deleteProfile(profileId) {
-        if (!confirm('Are you sure you want to delete this profile?')) return;
+    function showAddPresetModal() {
+        document.getElementById('preset-modal').classList.remove('hidden');
+    }
+
+    function hideAddPresetModal() {
+        document.getElementById('preset-modal').classList.add('hidden');
+        // Clear form
+        document.getElementById('preset-name').value = '';
+        document.getElementById('preset-description').value = '';
+        document.getElementById('preset-ports').value = '';
+        document.getElementById('preset-is-default').checked = false;
+    }
+
+    async function savePortPreset() {
+        const name = document.getElementById('preset-name').value;
+        const description = document.getElementById('preset-description').value;
+        const ports = document.getElementById('preset-ports').value;
+        const is_default = document.getElementById('preset-is-default').checked;
+
+        if (!name || !ports) {
+            showToast('Please fill in name and ports', 'error');
+            return;
+        }
 
         try {
-            const response = await fetch(`/api/profiles/${profileId}`, {
+            const response = await fetch('/api/port-presets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description, ports, is_default })
+            });
+
+            if (response.ok) {
+                showToast('Port preset created', 'success');
+                hideAddPresetModal();
+                loadPortPresets();
+            } else {
+                const error = await response.json();
+                showToast(error.detail || 'Error creating preset', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving preset:', error);
+            showToast('Error saving preset', 'error');
+        }
+    }
+
+    async function deletePortPreset(presetId) {
+        if (!confirm('Are you sure you want to delete this preset?')) return;
+
+        try {
+            const response = await fetch(`/api/port-presets/${presetId}`, {
                 method: 'DELETE'
             });
 
             if (response.ok) {
-                showToast('Profile deleted successfully', 'success');
-                loadProfiles();
+                showToast('Preset deleted', 'success');
+                loadPortPresets();
             } else {
-                showToast('Error deleting profile', 'error');
+                showToast('Error deleting preset', 'error');
             }
         } catch (error) {
-            console.error('Error deleting profile:', error);
-            showToast('Error deleting profile', 'error');
+            console.error('Error deleting preset:', error);
+            showToast('Error deleting preset', 'error');
         }
     }
 
-    // Load profiles on page load
-    document.addEventListener('DOMContentLoaded', loadProfiles);
+    // AI Services Functions
+    async function loadAIServices() {
+        try {
+            const response = await fetch('/api/ai-services');
+            const services = await response.json();
+
+            services.forEach(service => {
+                const provider = service.provider;
+                const baseUrlField = document.getElementById(`${provider}-base-url`);
+                if (baseUrlField) baseUrlField.value = service.base_url || '';
+
+                const apiKeyField = document.getElementById(`${provider}-api-key`);
+                if (apiKeyField) apiKeyField.value = service.api_key || '';
+
+                const modelField = document.getElementById(`${provider}-model`);
+                if (modelField) modelField.value = service.model || '';
+
+                const enabledField = document.getElementById(`${provider}-enabled`);
+                if (enabledField) enabledField.checked = service.enabled;
+            });
+        } catch (error) {
+            console.error('Error loading AI services:', error);
+        }
+    }
+
+    async function saveAIService(provider) {
+        const data = { provider, enabled: false, config: {} };
+
+        if (provider === 'ollama') {
+            data.base_url = document.getElementById('ollama-base-url').value;
+            data.model = document.getElementById('ollama-model').value;
+            data.enabled = document.getElementById('ollama-enabled').checked;
+        } else if (provider === 'claude') {
+            data.api_key = document.getElementById('claude-api-key').value;
+            data.model = document.getElementById('claude-model').value;
+            data.enabled = document.getElementById('claude-enabled').checked;
+        } else if (provider === 'openai') {
+            data.api_key = document.getElementById('openai-api-key').value;
+            data.model = document.getElementById('openai-model').value;
+            data.enabled = document.getElementById('openai-enabled').checked;
+        }
+
+        try {
+            const response = await fetch('/api/ai-services', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                showToast(`${provider} configuration saved`, 'success');
+            } else {
+                showToast('Error saving configuration', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving AI service:', error);
+            showToast('Error saving configuration', 'error');
+        }
+    }
+
+    // Scan Defaults Functions
+    async function loadScanDefaults() {
+        try {
+            const response = await fetch('/api/scan-defaults');
+            const defaults = await response.json();
+
+            if (defaults.timeout) document.getElementById('default-timeout').value = defaults.timeout;
+            if (defaults.host_conc) document.getElementById('default-host-conc').value = defaults.host_conc;
+            if (defaults.svc_conc) document.getElementById('default-svc-conc').value = defaults.svc_conc;
+            if (defaults.preset) document.getElementById('default-preset').value = defaults.preset;
+        } catch (error) {
+            console.error('Error loading scan defaults:', error);
+        }
+    }
+
+    async function saveScanDefaults() {
+        const settings = [
+            { setting_name: 'timeout', setting_value: document.getElementById('default-timeout').value },
+            { setting_name: 'host_conc', setting_value: document.getElementById('default-host-conc').value },
+            { setting_name: 'svc_conc', setting_value: document.getElementById('default-svc-conc').value },
+            { setting_name: 'preset', setting_value: document.getElementById('default-preset').value }
+        ];
+
+        try {
+            const response = await fetch('/api/scan-defaults', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            });
+
+            if (response.ok) {
+                showToast('Scan defaults saved', 'success');
+            } else {
+                showToast('Error saving defaults', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving defaults:', error);
+            showToast('Error saving defaults', 'error');
+        }
+    }
+
+    // SMTP Config Functions
+    async function loadSMTPConfig() {
+        try {
+            const response = await fetch('/api/smtp');
+            const config = await response.json();
+
+            if (config) {
+                document.getElementById('smtp-server').value = config.server || '';
+                document.getElementById('smtp-port').value = config.port || 587;
+                document.getElementById('smtp-username').value = config.username || '';
+                document.getElementById('smtp-password').value = config.password || '';
+                document.getElementById('smtp-from-email').value = config.from_email || '';
+                document.getElementById('smtp-use-tls').checked = config.use_tls !== false;
+            }
+        } catch (error) {
+            console.error('Error loading SMTP config:', error);
+        }
+    }
+
+    async function saveSMTPConfig() {
+        const config = {
+            server: document.getElementById('smtp-server').value,
+            port: parseInt(document.getElementById('smtp-port').value),
+            username: document.getElementById('smtp-username').value,
+            password: document.getElementById('smtp-password').value,
+            from_email: document.getElementById('smtp-from-email').value,
+            use_tls: document.getElementById('smtp-use-tls').checked
+        };
+
+        if (!config.server || !config.from_email) {
+            showToast('Server and From Email are required', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/smtp', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+
+            if (response.ok) {
+                showToast('SMTP configuration saved', 'success');
+            } else {
+                showToast('Error saving SMTP config', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving SMTP config:', error);
+            showToast('Error saving SMTP config', 'error');
+        }
+    }
+
+    // CVE Config Functions
+    async function loadCVEConfig() {
+        try {
+            const response = await fetch('/api/cve');
+            const config = await response.json();
+
+            if (config) {
+                document.getElementById('nvd-api-key').value = config.nvd_api_key || '';
+                document.getElementById('cve-cache-duration').value = config.cache_duration_days || 7;
+                document.getElementById('cve-auto-lookup').checked = config.auto_lookup !== false;
+            }
+        } catch (error) {
+            console.error('Error loading CVE config:', error);
+        }
+    }
+
+    async function saveCVEConfig() {
+        const config = {
+            nvd_api_key: document.getElementById('nvd-api-key').value,
+            cache_duration_days: parseInt(document.getElementById('cve-cache-duration').value),
+            auto_lookup: document.getElementById('cve-auto-lookup').checked
+        };
+
+        try {
+            const response = await fetch('/api/cve', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+
+            if (response.ok) {
+                showToast('CVE configuration saved', 'success');
+            } else {
+                showToast('Error saving CVE config', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving CVE config:', error);
+            showToast('Error saving CVE config', 'error');
+        }
+    }
+
+    // Retention Policy Functions
+    async function loadRetentionPolicy() {
+        try {
+            const response = await fetch('/api/retention');
+            const policy = await response.json();
+
+            if (policy) {
+                document.getElementById('retention-days').value = policy.retention_days || 90;
+                document.getElementById('retention-auto-cleanup').checked = policy.auto_cleanup || false;
+                document.getElementById('retention-keep-critical').checked = policy.keep_critical_findings !== false;
+            }
+        } catch (error) {
+            console.error('Error loading retention policy:', error);
+        }
+    }
+
+    async function saveRetentionPolicy() {
+        const policy = {
+            retention_days: parseInt(document.getElementById('retention-days').value),
+            auto_cleanup: document.getElementById('retention-auto-cleanup').checked,
+            keep_critical_findings: document.getElementById('retention-keep-critical').checked
+        };
+
+        try {
+            const response = await fetch('/api/retention', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(policy)
+            });
+
+            if (response.ok) {
+                showToast('Retention policy saved', 'success');
+            } else {
+                showToast('Error saving retention policy', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving retention policy:', error);
+            showToast('Error saving retention policy', 'error');
+        }
+    }
+
+    // Load initial tab on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        showTab('port-presets');
+    });
 </script>
 {% endblock %}

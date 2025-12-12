@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  icebreaker-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: icebreaker-web
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./runs:/app/runs
+      - ./icebreaker.db:/app/icebreaker.db
+    environment:
+      - DATABASE_URL=sqlite:///./icebreaker.db
+      # Optional: Set API key for authentication
+      # - ICEBREAKER_API_KEY=your-secret-api-key-here
+      # Optional: Set Ollama endpoint if using remote instance
+      # - OLLAMA_HOST=http://ollama:11434
+    restart: unless-stopped
+    networks:
+      - icebreaker
+
+  # Optional: Run Ollama locally for AI analysis
+  ollama:
+    image: ollama/ollama:latest
+    container_name: icebreaker-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - icebreaker
+    # Uncomment to pull model on startup
+    # command: >
+    #   sh -c "ollama serve & sleep 10 && ollama pull llama3.2"
+
+networks:
+  icebreaker:
+    driver: bridge
+
+volumes:
+  ollama-data:
+    driver: local

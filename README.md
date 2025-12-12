@@ -129,6 +129,59 @@ icebreaker -t scope.txt --ai openai --ai-model gpt-4o
 
 The AI summary is saved as `ai_executive_summary.md` in the output directory.
 
+### Web Interface
+
+Icebreaker includes a modern web interface for managing scans, viewing results, and analyzing findings:
+
+```bash
+# Start the web server
+icebreaker-web
+
+# Or using Docker
+docker-compose up -d
+```
+
+Then visit **http://localhost:8000** to access:
+- 📊 **Dashboard** - Real-time statistics and recent scans
+- 🎯 **New Scan** - Interactive scan configuration form
+- 📜 **Scan History** - Browse and filter all scans
+- 🔍 **Scan Details** - View findings, services, and configuration
+- ⚙️ **Settings** - Manage scan profiles
+
+**Web Features:**
+- ✨ Real-time updates via WebSocket
+- 📥 Export results (JSON, SARIF, HTML, Markdown)
+- 🔄 Compare scans to track progress
+- ✅ Mark false positives
+- 🎨 Modern, responsive UI with Tailwind CSS
+- 🔐 Optional API key authentication
+
+**Docker Deployment:**
+
+```bash
+# Clone repository
+git clone https://github.com/Zetascrub/Icebreaker
+cd Icebreaker
+
+# Start services (web interface + optional Ollama)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+**Environment Variables:**
+```bash
+# Optional: Enable authentication
+export ICEBREAKER_API_KEY="your-secret-key"
+
+# Optional: Use remote Ollama
+export OLLAMA_HOST="http://your-ollama-server:11434"
+```
+
 ## 📊 Output Formats
 
 ### Directory Structure

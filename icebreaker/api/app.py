@@ -2,14 +2,17 @@
 FastAPI application for Icebreaker web interface.
 """
 from __future__ import annotations
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from pathlib import Path
 
 from icebreaker.api.routers import scans, targets, settings
-from icebreaker.db.database import init_db
+from icebreaker.api.websocket import manager
+from icebreaker.db.database import init_db, get_db
+from icebreaker.db.models import Scan
+from sqlalchemy.orm import Session
 
 # Create FastAPI app
 app = FastAPI(
@@ -65,6 +68,46 @@ async def scan_detail_page(request: Request, scan_id: int):
 async def settings_page(request: Request):
     """Settings page."""
     return templates.TemplateResponse("settings.html", {"request": request})
+
+
+@app.websocket("/ws/scans/{scan_id}")
+async def websocket_scan_updates(websocket: WebSocket, scan_id: int):
+    """WebSocket endpoint for real-time scan updates."""
+    await manager.connect(websocket, scan_id)
+    try:
+        # Send initial scan status
+        db = next(get_db())
+        scan = db.query(Scan).filter(Scan.id == scan_id).first()
+        if scan:
+            await websocket.send_json({
+                "type": "scan_status",
+                "data": {
+                    "id": scan.id,
+                    "status": scan.status.value,
+                    "services_found": scan.services_found,
+                    "findings_count": scan.findings_count
+                }
+            })
+
+        # Keep connection alive and listen for messages
+        while True:
+            data = await websocket.receive_text()
+            # Echo back for keepalive
+            await websocket.send_json({"type": "ping", "data": "pong"})
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, scan_id)
+
+
+@app.websocket("/ws/dashboard")
+async def websocket_dashboard(websocket: WebSocket):
+    """WebSocket endpoint for dashboard updates."""
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_json({"type": "ping", "data": "pong"})
+    except WebSocketDisconnect:
+        pass
 
 
 @app.get("/health")

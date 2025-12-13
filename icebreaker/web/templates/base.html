@@ -11,7 +11,55 @@
         .severity-medium { color: #ca8a04; }
         .severity-low { color: #65a30d; }
         .severity-info { color: #0284c7; }
+
+        /* Toast animations */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .toast-enter {
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        .toast-exit {
+            animation: slideOutRight 0.3s ease-in;
+        }
+
+        /* Loading skeleton */
+        @keyframes shimmer {
+            0% {
+                background-position: -1000px 0;
+            }
+            100% {
+                background-position: 1000px 0;
+            }
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 1000px 100%;
+            animation: shimmer 2s infinite;
+        }
     </style>
+    {% block head %}{% endblock %}
 </head>
 <body class="bg-gray-50">
     <!-- Navigation -->

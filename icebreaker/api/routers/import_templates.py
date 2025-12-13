@@ -66,6 +66,22 @@ async def preview_nessus_plugins(
         # Save uploaded file
         tar_path = temp_path / file.filename
         file_content = await file.read()
+
+        # Check if file content is actually received
+        if len(file_content) == 0:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+        # Check file signature (magic bytes)
+        file_type = "unknown"
+        if file_content[:2] == b'\x1f\x8b':  # gzip
+            file_type = "gzip"
+        elif file_content[:3] == b'BZh':  # bzip2
+            file_type = "bzip2"
+        elif file_content[:262:].startswith(b'ustar'):  # uncompressed tar
+            file_type = "tar"
+        elif file_content[:512:].endswith(b'ustar\x00'):
+            file_type = "tar"
+
         with open(tar_path, 'wb') as f:
             f.write(file_content)
 
@@ -81,8 +97,19 @@ async def preview_nessus_plugins(
                     if member.name.startswith('/') or '..' in member.name:
                         continue
                     tar.extract(member, extract_dir)
+        except tarfile.ReadError as e:
+            error_detail = (
+                f"Invalid tar archive (detected type: {file_type}). "
+                f"Please ensure you're uploading a Nessus plugin archive (.tar, .tar.gz, or .tgz). "
+                f"File size: {len(file_content)} bytes. "
+                f"Error: {str(e)}"
+            )
+            raise HTTPException(status_code=400, detail=error_detail)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid tar file: {str(e)}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to extract tar archive: {str(e)}"
+            )
 
         # Find all .nasl files
         nasl_files = list(extract_dir.rglob('*.nasl'))

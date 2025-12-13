@@ -2,6 +2,11 @@
 
 {% block title %}Dashboard - Icebreaker{% endblock %}
 
+{% block head %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="space-y-6">
     <!-- Page Header -->
@@ -10,9 +15,22 @@
         <p class="mt-2 text-sm text-gray-600">Overview of your security scans</p>
     </div>
 
+    <!-- Risk Score Banner -->
+    <div class="bg-gradient-to-r from-indigo-500 to-purple-600 shadow rounded-lg p-6 text-white">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-lg font-medium">Overall Security Risk Score</h2>
+                <p class="text-sm opacity-90 mt-1">Based on findings severity and volume</p>
+            </div>
+            <div class="text-center">
+                <div class="text-5xl font-bold" id="risk-score">-</div>
+                <div class="text-sm opacity-90">out of 100</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4" id="stats-cards">
-        <!-- Will be populated by JavaScript -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
         <div class="bg-white overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
@@ -92,6 +110,61 @@
                 </div>
             </div>
         </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Findings</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900" id="total-findings">-</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <!-- Severity Distribution Chart -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Findings by Severity</h3>
+            <div class="h-64">
+                <canvas id="severityChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Finding Status Distribution Chart -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Finding Status</h3>
+            <div class="h-64">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Vulnerable Targets -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Top Vulnerable Targets</h3>
+        <div class="h-80">
+            <canvas id="targetsChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Scan Activity Timeline -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Scan Activity (Last 30 Days)</h3>
+        <div class="h-64">
+            <canvas id="timelineChart"></canvas>
+        </div>
     </div>
 
     <!-- Recent Scans -->
@@ -128,42 +201,37 @@
 </div>
 
 <script>
-    // Load dashboard data
+    let charts = {
+        severity: null,
+        status: null,
+        targets: null,
+        timeline: null
+    };
+
+    // Load dashboard data with analytics
     async function loadDashboard() {
         try {
+            // Load analytics data
+            const analyticsResponse = await fetch('/api/analytics/dashboard');
+            const analytics = await analyticsResponse.json();
+
+            // Update stats cards
+            document.getElementById('active-scans').textContent = analytics.scans.active;
+            document.getElementById('completed-scans').textContent = analytics.scans.completed;
+            document.getElementById('critical-findings').textContent = analytics.findings.severity_distribution.CRITICAL || 0;
+            document.getElementById('high-findings').textContent = analytics.findings.severity_distribution.HIGH || 0;
+            document.getElementById('total-findings').textContent = analytics.findings.total;
+            document.getElementById('risk-score').textContent = analytics.risk.overall_score;
+
+            // Create/update charts
+            createSeverityChart(analytics.findings.severity_distribution);
+            createStatusChart(analytics.findings.status_distribution);
+            createTargetsChart(analytics.targets.top_vulnerable);
+            createTimelineChart(analytics.timeline.scans_30_days);
+
             // Load recent scans
             const scansResponse = await fetch('/api/scans?limit=5');
             const scans = await scansResponse.json();
-
-            // Calculate stats
-            let activeScans = 0;
-            let completedScans = 0;
-            let criticalFindings = 0;
-            let highFindings = 0;
-
-            const allScansResponse = await fetch('/api/scans?limit=1000');
-            const allScans = await allScansResponse.json();
-
-            allScans.forEach(scan => {
-                if (scan.status === 'running' || scan.status === 'pending') activeScans++;
-                if (scan.status === 'completed') completedScans++;
-            });
-
-            // Get findings for completed scans
-            for (const scan of allScans.filter(s => s.status === 'completed').slice(0, 10)) {
-                const findingsResponse = await fetch(`/api/scans/${scan.id}/findings`);
-                const findings = await findingsResponse.json();
-                findings.forEach(f => {
-                    if (f.severity === 'CRITICAL') criticalFindings++;
-                    if (f.severity === 'HIGH') highFindings++;
-                });
-            }
-
-            // Update stats
-            document.getElementById('active-scans').textContent = activeScans;
-            document.getElementById('completed-scans').textContent = completedScans;
-            document.getElementById('critical-findings').textContent = criticalFindings;
-            document.getElementById('high-findings').textContent = highFindings;
 
             // Render recent scans
             const list = document.getElementById('recent-scans-list');
@@ -192,14 +260,179 @@
             }
         } catch (error) {
             console.error('Error loading dashboard:', error);
-            showToast('Error loading dashboard data', 'error');
         }
+    }
+
+    function createSeverityChart(severityData) {
+        const ctx = document.getElementById('severityChart');
+        if (!ctx) return;
+
+        if (charts.severity) {
+            charts.severity.destroy();
+        }
+
+        charts.severity = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Critical', 'High', 'Medium', 'Low', 'Info'],
+                datasets: [{
+                    data: [
+                        severityData.CRITICAL || 0,
+                        severityData.HIGH || 0,
+                        severityData.MEDIUM || 0,
+                        severityData.LOW || 0,
+                        severityData.INFO || 0
+                    ],
+                    backgroundColor: [
+                        '#dc2626', // red-600
+                        '#ea580c', // orange-600
+                        '#d97706', // amber-600
+                        '#65a30d', // lime-600
+                        '#0284c7'  // sky-600
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+    }
+
+    function createStatusChart(statusData) {
+        const ctx = document.getElementById('statusChart');
+        if (!ctx) return;
+
+        if (charts.status) {
+            charts.status.destroy();
+        }
+
+        const labels = Object.keys(statusData);
+        const data = Object.values(statusData);
+
+        charts.status = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels.map(l => l.charAt(0).toUpperCase() + l.slice(1).replace('_', ' ')),
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        '#6366f1', // indigo-500
+                        '#8b5cf6', // violet-500
+                        '#ec4899', // pink-500
+                        '#14b8a6', // teal-500
+                        '#f59e0b', // amber-500
+                        '#10b981'  // emerald-500
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+    }
+
+    function createTargetsChart(targetsData) {
+        const ctx = document.getElementById('targetsChart');
+        if (!ctx) return;
+
+        if (charts.targets) {
+            charts.targets.destroy();
+        }
+
+        charts.targets = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: targetsData.map(t => t.target),
+                datasets: [{
+                    label: 'Findings',
+                    data: targetsData.map(t => t.finding_count),
+                    backgroundColor: '#6366f1',
+                    borderColor: '#4f46e5',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function createTimelineChart(timelineData) {
+        const ctx = document.getElementById('timelineChart');
+        if (!ctx) return;
+
+        if (charts.timeline) {
+            charts.timeline.destroy();
+        }
+
+        charts.timeline = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: timelineData.map(t => new Date(t.date).toLocaleDateString()),
+                datasets: [{
+                    label: 'Scans',
+                    data: timelineData.map(t => t.count),
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
     }
 
     // Load on page load
     document.addEventListener('DOMContentLoaded', loadDashboard);
 
-    // Auto-refresh every 10 seconds
-    setInterval(loadDashboard, 10000);
+    // Auto-refresh every 30 seconds
+    setInterval(loadDashboard, 30000);
 </script>
 {% endblock %}

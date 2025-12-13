@@ -70,6 +70,58 @@
         <div class="p-6">
             <!-- Findings Tab -->
             <div id="findings-content" class="tab-content">
+                <!-- Filters and Controls -->
+                <div class="mb-6 bg-gray-50 p-4 rounded-lg space-y-4">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <!-- Search -->
+                        <div class="flex-1 min-w-64">
+                            <input type="text" id="finding-search" placeholder="Search findings..."
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                   oninput="filterFindings()">
+                        </div>
+
+                        <!-- Severity Filter -->
+                        <select id="severity-filter" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterFindings()">
+                            <option value="">All Severities</option>
+                            <option value="CRITICAL">Critical</option>
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="LOW">Low</option>
+                            <option value="INFO">Info</option>
+                        </select>
+
+                        <!-- Status Filter -->
+                        <select id="status-filter" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterFindings()">
+                            <option value="">All Statuses</option>
+                            <option value="new">New</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="fixed">Fixed</option>
+                            <option value="false_positive">False Positive</option>
+                        </select>
+
+                        <!-- Sort -->
+                        <select id="sort-by" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterFindings()">
+                            <option value="risk_desc">Risk Score (High to Low)</option>
+                            <option value="risk_asc">Risk Score (Low to High)</option>
+                            <option value="severity_desc">Severity (High to Low)</option>
+                            <option value="severity_asc">Severity (Low to High)</option>
+                            <option value="title_asc">Title (A-Z)</option>
+                            <option value="title_desc">Title (Z-A)</option>
+                        </select>
+
+                        <!-- Export All -->
+                        <button onclick="exportAllFindings()" class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            ⬇ Export All
+                        </button>
+                    </div>
+
+                    <!-- Stats Bar -->
+                    <div class="flex items-center text-sm text-gray-600">
+                        <span id="findings-stats">Loading...</span>
+                    </div>
+                </div>
+
                 <div id="findings-list">
                     <div class="text-center py-8">
                         <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24">
@@ -124,6 +176,8 @@
 <script>
     const scanId = {{ scan_id }};
     let currentScan = null;
+    let allFindings = [];  // Store all findings for filtering/sorting
+    let findings = [];  // Store current findings after filtering
 
     async function loadScanDetails() {
         try {
@@ -198,50 +252,126 @@
     async function loadFindings() {
         try {
             const response = await fetch(`/api/scans/${scanId}/findings`);
-            const findings = await response.json();
+            allFindings = await response.json();
+            findings = allFindings;
 
-            const list = document.getElementById('findings-list');
-            if (findings.length === 0) {
-                list.innerHTML = '<p class="text-center text-gray-500 py-8">No findings detected</p>';
-                return;
+            filterFindings();  // Initial render with no filters
+
+        } catch (error) {
+            console.error('Error loading findings:', error);
+            showToast('Error loading findings', 'error');
+        }
+    }
+
+    function filterFindings() {
+        const searchTerm = document.getElementById('finding-search')?.value.toLowerCase() || '';
+        const severityFilter = document.getElementById('severity-filter')?.value || '';
+        const statusFilter = document.getElementById('status-filter')?.value || '';
+        const sortBy = document.getElementById('sort-by')?.value || 'risk_desc';
+
+        // Filter findings
+        findings = allFindings.filter(finding => {
+            // Search filter
+            const matchesSearch = !searchTerm ||
+                finding.title.toLowerCase().includes(searchTerm) ||
+                finding.target.toLowerCase().includes(searchTerm) ||
+                finding.finding_id.toLowerCase().includes(searchTerm);
+
+            // Severity filter
+            const matchesSeverity = !severityFilter || finding.severity === severityFilter;
+
+            // Status filter
+            const matchesStatus = !statusFilter || finding.status === statusFilter;
+
+            return matchesSearch && matchesSeverity && matchesStatus;
+        });
+
+        // Sort findings
+        const severityOrder = { 'CRITICAL': 5, 'HIGH': 4, 'MEDIUM': 3, 'LOW': 2, 'INFO': 1 };
+
+        findings.sort((a, b) => {
+            switch (sortBy) {
+                case 'risk_desc':
+                    return (b.risk_score || 0) - (a.risk_score || 0);
+                case 'risk_asc':
+                    return (a.risk_score || 0) - (b.risk_score || 0);
+                case 'severity_desc':
+                    return severityOrder[b.severity] - severityOrder[a.severity];
+                case 'severity_asc':
+                    return severityOrder[a.severity] - severityOrder[b.severity];
+                case 'title_asc':
+                    return a.title.localeCompare(b.title);
+                case 'title_desc':
+                    return b.title.localeCompare(a.title);
+                default:
+                    return (b.risk_score || 0) - (a.risk_score || 0);
             }
+        });
 
-            list.innerHTML = findings.map(finding => `
-                <div class="border-b border-gray-200 last:border-0 py-4">
+        // Update stats
+        const severityCounts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+        findings.forEach(f => {
+            if (severityCounts[f.severity] !== undefined) {
+                severityCounts[f.severity]++;
+            }
+        });
+
+        document.getElementById('findings-stats').innerHTML = `
+            Showing ${findings.length} of ${allFindings.length} findings
+            <span class="ml-4 text-red-600 font-medium">${severityCounts.CRITICAL} Critical</span>
+            <span class="ml-2 text-orange-600 font-medium">${severityCounts.HIGH} High</span>
+            <span class="ml-2 text-amber-600 font-medium">${severityCounts.MEDIUM} Medium</span>
+            <span class="ml-2 text-lime-600 font-medium">${severityCounts.LOW} Low</span>
+            <span class="ml-2 text-sky-600 font-medium">${severityCounts.INFO} Info</span>
+        `;
+
+        // Render findings
+        renderFindings();
+    }
+
+    function renderFindings() {
+        const list = document.getElementById('findings-list');
+
+        if (findings.length === 0) {
+            list.innerHTML = '<p class="text-center text-gray-500 py-8">No findings match your filters</p>';
+            return;
+        }
+
+        list.innerHTML = findings.map(finding => `
+                <div class="border-b border-gray-200 last:border-0 py-4 hover:bg-gray-50 transition">
                     <div class="flex items-start justify-between">
-                        <div class="flex-1">
+                        <div class="flex-1 cursor-pointer" onclick="viewFindingDetails(${finding.id})">
                             <div class="flex items-center">
                                 <span class="severity-${finding.severity.toLowerCase()} font-semibold text-sm uppercase">${finding.severity}</span>
                                 <span class="ml-2 text-sm font-medium text-gray-900">${finding.title}</span>
                             </div>
                             <div class="mt-1 text-sm text-gray-500">
                                 Target: ${finding.target}${finding.port ? `:${finding.port}` : ''}
+                                ${finding.tags && finding.tags.length > 0 ? ` • Tags: ${finding.tags.slice(0, 3).join(', ')}` : ''}
                             </div>
                             <div class="mt-1 text-sm text-gray-600">
                                 Risk Score: <span class="font-medium">${finding.risk_score ? finding.risk_score.toFixed(1) : 'N/A'}</span>
                                 • Confidence: <span class="font-medium">${(finding.confidence * 100).toFixed(0)}%</span>
                             </div>
-                            ${finding.template_id ? `
-                                <div class="mt-3">
-                                    <button onclick="viewFindingDetails(${finding.id})" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
-                                        📋 View Details & Remediation →
-                                    </button>
-                                </div>
-                            ` : ''}
+                            <div class="mt-2 flex items-center space-x-4">
+                                <span class="text-xs text-indigo-600 font-medium">
+                                    📋 Click for details
+                                </span>
+                                ${finding.template_id ? '<span class="text-xs text-green-600">✓ Has remediation</span>' : ''}
+                                ${Object.keys(finding.details || {}).length > 0 ? '<span class="text-xs text-blue-600">📊 Has scan data</span>' : ''}
+                            </div>
                         </div>
                         <div class="ml-4 flex flex-col space-y-2">
-                            <button onclick="toggleFalsePositive(${finding.id})" class="text-sm ${finding.false_positive ? 'text-green-600 hover:text-green-700' : 'text-gray-500 hover:text-gray-700'}">
+                            <button onclick="event.stopPropagation(); toggleFalsePositive(${finding.id})" class="text-sm ${finding.false_positive ? 'text-green-600 hover:text-green-700' : 'text-gray-500 hover:text-gray-700'}">
                                 ${finding.false_positive ? '✓ False Positive' : 'Mark False Positive'}
+                            </button>
+                            <button onclick="event.stopPropagation(); exportFinding(${finding.id})" class="text-sm text-gray-500 hover:text-gray-700">
+                                ⬇ Export
                             </button>
                         </div>
                     </div>
                 </div>
             `).join('');
-
-        } catch (error) {
-            console.error('Error loading findings:', error);
-            showToast('Error loading findings', 'error');
-        }
     }
 
     async function loadServices() {
@@ -447,93 +577,172 @@
             const findings = await findingResponse.json();
             const finding = findings.find(f => f.id === findingId);
 
-            if (!finding || !finding.template_id) return;
+            if (!finding) return;
 
-            // Get template details
-            const templateResponse = await fetch(`/api/finding-templates/${finding.template_id}`);
-            const template = await templateResponse.json();
+            // Get template details if available
+            let template = null;
+            if (finding.template_id) {
+                try {
+                    const templateResponse = await fetch(`/api/finding-templates/${finding.template_id}`);
+                    template = await templateResponse.json();
+                } catch (e) {
+                    console.warn('Failed to load template:', e);
+                }
+            }
 
             // Display modal
             const modal = document.getElementById('finding-modal');
             const content = document.getElementById('finding-modal-content');
 
             content.innerHTML = `
-                <div class="space-y-6">
+                <div>
                     <!-- Finding Header -->
-                    <div class="border-b border-gray-200 pb-4">
+                    <div class="border-b border-gray-200 pb-4 mb-4">
                         <div class="flex items-center mb-2">
                             <span class="severity-${finding.severity.toLowerCase()} font-semibold text-sm uppercase mr-3">${finding.severity}</span>
                             <h4 class="text-xl font-semibold text-gray-900">${finding.title}</h4>
                         </div>
-                        <p class="text-sm text-gray-500">
-                            Target: <span class="font-medium">${finding.target}${finding.port ? ':' + finding.port : ''}</span>
-                            ${template.cvss_score ? ` • CVSS: <span class="font-medium">${template.cvss_score}</span>` : ''}
-                        </p>
-                        ${template.category ? `<p class="mt-1"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${template.category}</span></p>` : ''}
-                    </div>
-
-                    <!-- Description -->
-                    <div>
-                        <h5 class="text-sm font-medium text-gray-900 mb-2">📝 Description</h5>
-                        <p class="text-sm text-gray-700 whitespace-pre-line">${template.description}</p>
-                    </div>
-
-                    <!-- Impact -->
-                    <div>
-                        <h5 class="text-sm font-medium text-gray-900 mb-2">⚠️ Impact</h5>
-                        <p class="text-sm text-gray-700 whitespace-pre-line">${template.impact}</p>
-                    </div>
-
-                    <!-- Remediation -->
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <h5 class="text-sm font-medium text-green-900 mb-2">✅ Remediation</h5>
-                        <p class="text-sm text-green-800 whitespace-pre-line">${template.remediation}</p>
-                    </div>
-
-                    <!-- Compliance & References -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
-                        ${template.cwe_id ? `
-                            <div>
-                                <h6 class="text-xs font-medium text-gray-500 uppercase mb-1">CWE</h6>
-                                <p class="text-sm text-gray-900">${template.cwe_id}</p>
-                            </div>
-                        ` : ''}
-                        ${template.owasp_2021 ? `
-                            <div>
-                                <h6 class="text-xs font-medium text-gray-500 uppercase mb-1">OWASP 2021</h6>
-                                <p class="text-sm text-gray-900">${template.owasp_2021}</p>
-                            </div>
-                        ` : ''}
-                        ${template.pci_dss ? `
-                            <div>
-                                <h6 class="text-xs font-medium text-gray-500 uppercase mb-1">PCI DSS</h6>
-                                <p class="text-sm text-gray-900">${template.pci_dss}</p>
-                            </div>
-                        ` : ''}
-                        ${template.nist_csf ? `
-                            <div>
-                                <h6 class="text-xs font-medium text-gray-500 uppercase mb-1">NIST CSF</h6>
-                                <p class="text-sm text-gray-900">${template.nist_csf}</p>
-                            </div>
-                        ` : ''}
-                    </div>
-
-                    ${template.references && template.references.length > 0 ? `
-                        <div class="border-t border-gray-200 pt-4">
-                            <h6 class="text-xs font-medium text-gray-500 uppercase mb-2">References</h6>
-                            <ul class="list-disc list-inside text-sm text-blue-600 space-y-1">
-                                ${template.references.map(ref => `<li><a href="${ref}" target="_blank" class="hover:underline">${ref}</a></li>`).join('')}
-                            </ul>
+                        <div class="flex items-center space-x-4 text-sm text-gray-500">
+                            <span>Target: <span class="font-medium">${finding.target}${finding.port ? ':' + finding.port : ''}</span></span>
+                            ${template && template.cvss_score ? `<span>CVSS: <span class="font-medium">${template.cvss_score}</span></span>` : ''}
+                            <span>Confidence: <span class="font-medium">${(finding.confidence * 100).toFixed(0)}%</span></span>
                         </div>
-                    ` : ''}
-
-                    <!-- Technical Details -->
-                    ${Object.keys(finding.details || {}).length > 0 ? `
-                        <div class="border-t border-gray-200 pt-4">
-                            <h6 class="text-xs font-medium text-gray-500 uppercase mb-2">Technical Details</h6>
-                            <pre class="text-xs text-gray-700 bg-gray-50 p-3 rounded overflow-x-auto">${JSON.stringify(finding.details, null, 2)}</pre>
+                        <div class="mt-2 flex items-center space-x-2">
+                            ${template && template.category ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${template.category}</span>` : ''}
+                            ${finding.tags ? finding.tags.map(tag => `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">${tag}</span>`).join('') : ''}
                         </div>
-                    ` : ''}
+                    </div>
+
+                    <!-- Tabs -->
+                    <div class="border-b border-gray-200">
+                        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                            <button onclick="showFindingTab('overview')" class="finding-tab-btn border-b-2 border-indigo-500 text-indigo-600 py-2 px-1 text-sm font-medium">
+                                Overview
+                            </button>
+                            <button onclick="showFindingTab('scan-output')" class="finding-tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 py-2 px-1 text-sm font-medium">
+                                Scan Output
+                            </button>
+                            ${template ? `
+                                <button onclick="showFindingTab('remediation')" class="finding-tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 py-2 px-1 text-sm font-medium">
+                                    Remediation
+                                </button>
+                                <button onclick="showFindingTab('compliance')" class="finding-tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 py-2 px-1 text-sm font-medium">
+                                    Compliance
+                                </button>
+                            ` : ''}
+                        </nav>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div class="mt-4">
+                        <!-- Overview Tab -->
+                        <div id="finding-tab-overview" class="finding-tab-content">
+                            ${template ? `
+                                <div class="space-y-4">
+                                    <div>
+                                        <h5 class="text-sm font-medium text-gray-900 mb-2">📝 Description</h5>
+                                        <p class="text-sm text-gray-700 whitespace-pre-line">${template.description}</p>
+                                    </div>
+                                    <div>
+                                        <h5 class="text-sm font-medium text-gray-900 mb-2">⚠️ Impact</h5>
+                                        <p class="text-sm text-gray-700 whitespace-pre-line">${template.impact}</p>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="text-sm text-gray-500">
+                                    <p>No template information available for this finding.</p>
+                                    ${finding.recommendation ? `
+                                        <div class="mt-4">
+                                            <h5 class="text-sm font-medium text-gray-900 mb-2">Recommendation</h5>
+                                            <p class="text-sm text-gray-700">${finding.recommendation}</p>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `}
+                        </div>
+
+                        <!-- Scan Output Tab -->
+                        <div id="finding-tab-scan-output" class="finding-tab-content hidden">
+                            <div class="space-y-4">
+                                <div>
+                                    <h5 class="text-sm font-medium text-gray-900 mb-2">📊 Raw Scan Data</h5>
+                                    ${Object.keys(finding.details || {}).length > 0 ? `
+                                        <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+                                            <pre class="text-xs text-green-400 font-mono">${JSON.stringify(finding.details, null, 2)}</pre>
+                                        </div>
+                                    ` : '<p class="text-sm text-gray-500">No scan data available</p>'}
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <h6 class="text-xs font-medium text-gray-500 uppercase mb-1">Finding ID</h6>
+                                        <code class="text-xs text-gray-900 bg-gray-100 px-2 py-1 rounded">${finding.finding_id}</code>
+                                    </div>
+                                    <div>
+                                        <h6 class="text-xs font-medium text-gray-500 uppercase mb-1">Risk Score</h6>
+                                        <code class="text-xs text-gray-900 bg-gray-100 px-2 py-1 rounded">${finding.risk_score || 'N/A'}</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        ${template ? `
+                            <!-- Remediation Tab -->
+                            <div id="finding-tab-remediation" class="finding-tab-content hidden">
+                                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <h5 class="text-sm font-medium text-green-900 mb-3">✅ Remediation Steps</h5>
+                                    <div class="text-sm text-green-800 whitespace-pre-line">${template.remediation}</div>
+                                </div>
+                                ${template.references && template.references.length > 0 ? `
+                                    <div class="mt-4">
+                                        <h6 class="text-xs font-medium text-gray-500 uppercase mb-2">📚 References</h6>
+                                        <ul class="list-disc list-inside text-sm space-y-1">
+                                            ${template.references.map(ref => `<li><a href="${ref}" target="_blank" class="text-blue-600 hover:underline">${ref}</a></li>`).join('')}
+                                        </ul>
+                                    </div>
+                                ` : ''}
+                            </div>
+
+                            <!-- Compliance Tab -->
+                            <div id="finding-tab-compliance" class="finding-tab-content hidden">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    ${template.cwe_id ? `
+                                        <div class="border border-gray-200 rounded-lg p-4">
+                                            <h6 class="text-xs font-medium text-gray-500 uppercase mb-1">CWE</h6>
+                                            <p class="text-sm text-gray-900 font-semibold">${template.cwe_id}</p>
+                                            <p class="text-xs text-gray-500 mt-1">Common Weakness Enumeration</p>
+                                        </div>
+                                    ` : ''}
+                                    ${template.owasp_2021 ? `
+                                        <div class="border border-gray-200 rounded-lg p-4">
+                                            <h6 class="text-xs font-medium text-gray-500 uppercase mb-1">OWASP 2021</h6>
+                                            <p class="text-sm text-gray-900 font-semibold">${template.owasp_2021}</p>
+                                            <p class="text-xs text-gray-500 mt-1">OWASP Top 10</p>
+                                        </div>
+                                    ` : ''}
+                                    ${template.pci_dss ? `
+                                        <div class="border border-gray-200 rounded-lg p-4">
+                                            <h6 class="text-xs font-medium text-gray-500 uppercase mb-1">PCI DSS</h6>
+                                            <p class="text-sm text-gray-900 font-semibold">${template.pci_dss}</p>
+                                            <p class="text-xs text-gray-500 mt-1">Payment Card Industry</p>
+                                        </div>
+                                    ` : ''}
+                                    ${template.nist_csf ? `
+                                        <div class="border border-gray-200 rounded-lg p-4">
+                                            <h6 class="text-xs font-medium text-gray-500 uppercase mb-1">NIST CSF</h6>
+                                            <p class="text-sm text-gray-900 font-semibold">${template.nist_csf}</p>
+                                            <p class="text-xs text-gray-500 mt-1">Cybersecurity Framework</p>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                ${template.cvss_vector ? `
+                                    <div class="mt-4 border border-gray-200 rounded-lg p-4">
+                                        <h6 class="text-xs font-medium text-gray-500 uppercase mb-1">CVSS Vector</h6>
+                                        <code class="text-xs text-gray-900 bg-gray-100 px-2 py-1 rounded">${template.cvss_vector}</code>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
                 </div>
             `;
 
@@ -546,6 +755,191 @@
 
     function closeFindingModal() {
         document.getElementById('finding-modal').classList.add('hidden');
+    }
+
+    function showFindingTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.finding-tab-btn').forEach(btn => {
+            btn.classList.remove('border-indigo-500', 'text-indigo-600');
+            btn.classList.add('border-transparent', 'text-gray-500');
+        });
+        event.target.classList.remove('border-transparent', 'text-gray-500');
+        event.target.classList.add('border-indigo-500', 'text-indigo-600');
+
+        // Update content
+        document.querySelectorAll('.finding-tab-content').forEach(content => {
+            content.classList.add('hidden');
+        });
+        const targetContent = document.getElementById(`finding-tab-${tabName}`);
+        if (targetContent) {
+            targetContent.classList.remove('hidden');
+        }
+    }
+
+    async function exportFinding(findingId) {
+        try {
+            // Get finding details
+            const findingResponse = await fetch(`/api/scans/${scanId}/findings`);
+            const findings = await findingResponse.json();
+            const finding = findings.find(f => f.id === findingId);
+
+            if (!finding) return;
+
+            // Get template if available
+            let template = null;
+            if (finding.template_id) {
+                try {
+                    const templateResponse = await fetch(`/api/finding-templates/${finding.template_id}`);
+                    template = await templateResponse.json();
+                } catch (e) {
+                    console.warn('Failed to load template:', e);
+                }
+            }
+
+            // Create export data
+            const exportData = {
+                finding_id: finding.finding_id,
+                title: finding.title,
+                severity: finding.severity,
+                target: finding.target,
+                port: finding.port,
+                confidence: finding.confidence,
+                risk_score: finding.risk_score,
+                tags: finding.tags,
+                details: finding.details,
+                recommendation: finding.recommendation,
+                false_positive: finding.false_positive
+            };
+
+            if (template) {
+                exportData.template = {
+                    description: template.description,
+                    impact: template.impact,
+                    remediation: template.remediation,
+                    cvss_score: template.cvss_score,
+                    cvss_vector: template.cvss_vector,
+                    cwe_id: template.cwe_id,
+                    owasp_2021: template.owasp_2021,
+                    pci_dss: template.pci_dss,
+                    nist_csf: template.nist_csf,
+                    references: template.references
+                };
+            }
+
+            // Download as JSON
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `finding_${finding.finding_id}_${finding.target.replace(/[^a-z0-9]/gi, '_')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast('Finding exported successfully', 'success');
+
+        } catch (error) {
+            console.error('Export failed:', error);
+            showToast('Export failed: ' + error.message, 'error');
+        }
+    }
+
+    async function exportAllFindings() {
+        try {
+            // Use the currently filtered findings
+            const findingsToExport = findings.length > 0 ? findings : allFindings;
+
+            if (findingsToExport.length === 0) {
+                showToast('No findings to export', 'info');
+                return;
+            }
+
+            // Get templates for all findings that have them
+            const templateIds = [...new Set(findingsToExport.filter(f => f.template_id).map(f => f.template_id))];
+            const templates = {};
+
+            for (const templateId of templateIds) {
+                try {
+                    const templateResponse = await fetch(`/api/finding-templates/${templateId}`);
+                    templates[templateId] = await templateResponse.json();
+                } catch (e) {
+                    console.warn(`Failed to load template ${templateId}:`, e);
+                }
+            }
+
+            // Create export data with templates
+            const exportData = {
+                scan: {
+                    id: currentScan.id,
+                    name: currentScan.name || currentScan.run_id,
+                    started_at: currentScan.started_at,
+                    completed_at: currentScan.completed_at,
+                    status: currentScan.status
+                },
+                summary: {
+                    total_findings: findingsToExport.length,
+                    severity_breakdown: {
+                        critical: findingsToExport.filter(f => f.severity === 'CRITICAL').length,
+                        high: findingsToExport.filter(f => f.severity === 'HIGH').length,
+                        medium: findingsToExport.filter(f => f.severity === 'MEDIUM').length,
+                        low: findingsToExport.filter(f => f.severity === 'LOW').length,
+                        info: findingsToExport.filter(f => f.severity === 'INFO').length
+                    }
+                },
+                findings: findingsToExport.map(finding => {
+                    const exportFinding = {
+                        finding_id: finding.finding_id,
+                        title: finding.title,
+                        severity: finding.severity,
+                        target: finding.target,
+                        port: finding.port,
+                        confidence: finding.confidence,
+                        risk_score: finding.risk_score,
+                        tags: finding.tags,
+                        details: finding.details,
+                        recommendation: finding.recommendation,
+                        false_positive: finding.false_positive,
+                        status: finding.status
+                    };
+
+                    if (finding.template_id && templates[finding.template_id]) {
+                        const template = templates[finding.template_id];
+                        exportFinding.template = {
+                            description: template.description,
+                            impact: template.impact,
+                            remediation: template.remediation,
+                            cvss_score: template.cvss_score,
+                            cvss_vector: template.cvss_vector,
+                            cwe_id: template.cwe_id,
+                            owasp_2021: template.owasp_2021,
+                            pci_dss: template.pci_dss,
+                            nist_csf: template.nist_csf,
+                            references: template.references
+                        };
+                    }
+
+                    return exportFinding;
+                })
+            };
+
+            // Download as JSON
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `scan_${currentScan.id}_findings_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast(`${findingsToExport.length} findings exported successfully`, 'success');
+
+        } catch (error) {
+            console.error('Bulk export failed:', error);
+            showToast('Export failed: ' + error.message, 'error');
+        }
     }
 
     async function toggleFalsePositive(findingId) {

@@ -1,0 +1,273 @@
+/* Icebreaker Themes - 10 Professional & Hacker-Inspired Themes */
+
+/* Theme 1: Default (Professional Indigo) */
+[data-theme="default"] {
+    --primary: #6366f1;
+    --primary-dark: #4f46e5;
+    --primary-light: #818cf8;
+    --accent: #8b5cf6;
+    --bg-primary: #ffffff;
+    --bg-secondary: #f9fafb;
+    --bg-tertiary: #f3f4f6;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --border: #e5e7eb;
+    --nav-bg: #ffffff;
+    --nav-text: #111827;
+}
+
+/* Theme 2: Dark Mode (Professional Dark) */
+[data-theme="dark"] {
+    --primary: #6366f1;
+    --primary-dark: #4f46e5;
+    --primary-light: #818cf8;
+    --accent: #8b5cf6;
+    --bg-primary: #1f2937;
+    --bg-secondary: #111827;
+    --bg-tertiary: #374151;
+    --text-primary: #f9fafb;
+    --text-secondary: #d1d5db;
+    --border: #374151;
+    --nav-bg: #111827;
+    --nav-text: #f9fafb;
+}
+
+/* Theme 3: Cyberpunk (Neon on Dark) */
+[data-theme="cyberpunk"] {
+    --primary: #ff00ff;
+    --primary-dark: #cc00cc;
+    --primary-light: #ff66ff;
+    --accent: #00ffff;
+    --bg-primary: #0d0221;
+    --bg-secondary: #1a0735;
+    --bg-tertiary: #2d0d5c;
+    --text-primary: #00ffff;
+    --text-secondary: #ff00ff;
+    --border: #ff00ff;
+    --nav-bg: #0d0221;
+    --nav-text: #00ffff;
+}
+
+/* Theme 4: Matrix (Classic Hacker Green) */
+[data-theme="matrix"] {
+    --primary: #00ff41;
+    --primary-dark: #00cc33;
+    --primary-light: #33ff66;
+    --accent: #00ff88;
+    --bg-primary: #000000;
+    --bg-secondary: #0a0a0a;
+    --bg-tertiary: #1a1a1a;
+    --text-primary: #00ff41;
+    --text-secondary: #00cc33;
+    --border: #003311;
+    --nav-bg: #000000;
+    --nav-text: #00ff41;
+}
+
+/* Theme 5: Terminal (Amber/Green Terminal) */
+[data-theme="terminal"] {
+    --primary: #ffa500;
+    --primary-dark: #cc8400;
+    --primary-light: #ffb733;
+    --accent: #00ff00;
+    --bg-primary: #0c0c0c;
+    --bg-secondary: #1a1a1a;
+    --bg-tertiary: #2a2a2a;
+    --text-primary: #ffa500;
+    --text-secondary: #00ff00;
+    --border: #333333;
+    --nav-bg: #000000;
+    --nav-text: #ffa500;
+}
+
+/* Theme 6: Nord (Professional Muted) */
+[data-theme="nord"] {
+    --primary: #88c0d0;
+    --primary-dark: #5e81ac;
+    --primary-light: #8fbcbb;
+    --accent: #b48ead;
+    --bg-primary: #2e3440;
+    --bg-secondary: #3b4252;
+    --bg-tertiary: #434c5e;
+    --text-primary: #eceff4;
+    --text-secondary: #d8dee9;
+    --border: #4c566a;
+    --nav-bg: #2e3440;
+    --nav-text: #eceff4;
+}
+
+/* Theme 7: Dracula (Purple Dark) */
+[data-theme="dracula"] {
+    --primary: #bd93f9;
+    --primary-dark: #9580ff;
+    --primary-light: #d0aeff;
+    --accent: #ff79c6;
+    --bg-primary: #282a36;
+    --bg-secondary: #21222c;
+    --bg-tertiary: #383a59;
+    --text-primary: #f8f8f2;
+    --text-secondary: #6272a4;
+    --border: #44475a;
+    --nav-bg: #282a36;
+    --nav-text: #f8f8f2;
+}
+
+/* Theme 8: Hacker News (Orange Professional) */
+[data-theme="hackernews"] {
+    --primary: #ff6600;
+    --primary-dark: #cc5200;
+    --primary-light: #ff8533;
+    --accent: #f60;
+    --bg-primary: #f6f6ef;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e5e5dd;
+    --text-primary: #000000;
+    --text-secondary: #828282;
+    --border: #ff6600;
+    --nav-bg: #ff6600;
+    --nav-text: #ffffff;
+}
+
+/* Theme 9: Monokai (Code Editor Inspired) */
+[data-theme="monokai"] {
+    --primary: #66d9ef;
+    --primary-dark: #52b5d7;
+    --primary-light: #7ae7ff;
+    --accent: #a6e22e;
+    --bg-primary: #272822;
+    --bg-secondary: #1e1f1c;
+    --bg-tertiary: #3e3d32;
+    --text-primary: #f8f8f2;
+    --text-secondary: #75715e;
+    --border: #49483e;
+    --nav-bg: #272822;
+    --nav-text: #f8f8f2;
+}
+
+/* Theme 10: Synthwave (Retro 80s Neon) */
+[data-theme="synthwave"] {
+    --primary: #f92aad;
+    --primary-dark: #c91589;
+    --primary-light: #ff4dbf;
+    --accent: #00d9ff;
+    --bg-primary: #262335;
+    --bg-secondary: #1a1626;
+    --bg-tertiary: #34294f;
+    --text-primary: #ff7edb;
+    --text-secondary: #b893ce;
+    --border: #495495;
+    --nav-bg: #262335;
+    --nav-text: #ff7edb;
+}
+
+/* Apply theme colors to elements */
+body {
+    background-color: var(--bg-secondary) !important;
+}
+
+nav {
+    background-color: var(--nav-bg) !important;
+}
+
+nav a, nav span {
+    color: var(--nav-text) !important;
+}
+
+.bg-white {
+    background-color: var(--bg-primary) !important;
+}
+
+.bg-gray-50 {
+    background-color: var(--bg-secondary) !important;
+}
+
+.bg-gray-100 {
+    background-color: var(--bg-tertiary) !important;
+}
+
+.text-gray-900, h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary) !important;
+}
+
+.text-gray-600, .text-gray-500, .text-gray-700 {
+    color: var(--text-secondary) !important;
+}
+
+.border-gray-200, .border-gray-300 {
+    border-color: var(--border) !important;
+}
+
+.bg-indigo-600, .bg-indigo-500 {
+    background-color: var(--primary) !important;
+}
+
+.bg-indigo-700 {
+    background-color: var(--primary-dark) !important;
+}
+
+.text-indigo-600 {
+    color: var(--primary) !important;
+}
+
+.border-indigo-500 {
+    border-color: var(--primary) !important;
+}
+
+.ring-indigo-500 {
+    --tw-ring-color: var(--primary) !important;
+}
+
+/* Special effects for hacker themes */
+[data-theme="matrix"] *,
+[data-theme="terminal"] *,
+[data-theme="cyberpunk"] * {
+    font-family: 'Courier New', monospace;
+}
+
+[data-theme="matrix"] body::before,
+[data-theme="cyberpunk"] body::before,
+[data-theme="synthwave"] body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: radial-gradient(circle, transparent 20%, var(--bg-primary) 100%);
+    opacity: 0.3;
+    z-index: 0;
+}
+
+/* Scanline effect for terminal themes */
+[data-theme="terminal"] body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.15),
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 2px
+    );
+    z-index: 9999;
+}
+
+/* Glow effect for neon themes */
+[data-theme="cyberpunk"] .bg-indigo-600,
+[data-theme="matrix"] .bg-indigo-600,
+[data-theme="synthwave"] .bg-indigo-600 {
+    box-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary) !important;
+}
+
+[data-theme="cyberpunk"] h1,
+[data-theme="cyberpunk"] h2,
+[data-theme="synthwave"] h1,
+[data-theme="synthwave"] h2 {
+    text-shadow: 0 0 10px var(--primary);
+}

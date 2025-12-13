@@ -8,10 +8,11 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from pathlib import Path
 
-from icebreaker.api.routers import scans, targets, settings, finding_templates, import_templates, analytics, reports
+from icebreaker.api.routers import scans, targets, settings, finding_templates, import_templates, analytics, reports, exports, schedules
 from icebreaker.api.websocket import manager
 from icebreaker.db.database import init_db, get_db
 from icebreaker.db.models import Scan
+from icebreaker.scheduler.service import get_scheduler
 from sqlalchemy.orm import Session
 
 # Create FastAPI app
@@ -23,6 +24,12 @@ app = FastAPI(
 
 # Initialize database
 init_db()
+
+# Initialize scheduler (loads schedules from database)
+try:
+    get_scheduler()
+except Exception as e:
+    print(f"Warning: Failed to initialize scheduler: {e}")
 
 # Mount static files
 static_path = Path(__file__).parent.parent / "web" / "static"
@@ -42,6 +49,8 @@ app.include_router(finding_templates.router, prefix="/api", tags=["finding_templ
 app.include_router(import_templates.router, prefix="/api", tags=["import"])
 app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(reports.router, prefix="/api", tags=["reports"])
+app.include_router(exports.router, prefix="/api", tags=["exports"])
+app.include_router(schedules.router, prefix="/api", tags=["schedules"])
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -90,6 +99,12 @@ async def import_page(request: Request):
 async def network_map_page(request: Request):
     """Network topology visualization page."""
     return templates.TemplateResponse("network_map.html", {"request": request})
+
+
+@app.get("/schedules", response_class=HTMLResponse)
+async def schedules_page(request: Request):
+    """Scheduled scans management page."""
+    return templates.TemplateResponse("schedules.html", {"request": request})
 
 
 @app.websocket("/ws/scans/{scan_id}")

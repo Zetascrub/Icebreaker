@@ -33,7 +33,62 @@
             <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             Technical Report
         </a>
+
+        <!-- Export Dropdown -->
+        <div class="relative inline-block text-left">
+            <button type="button" onclick="toggleExportMenu()" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Export Data
+                <svg class="-mr-1 ml-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div id="export-menu" class="hidden origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none z-10">
+                <div class="py-1">
+                    <a href="#" onclick="event.preventDefault(); window.location.href='/api/exports/scans/' + scanId + '/findings.csv'" class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <svg class="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        CSV - Findings
+                    </a>
+                    <a href="#" onclick="event.preventDefault(); window.location.href='/api/exports/scans/' + scanId + '/services.csv'" class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <svg class="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        CSV - Services
+                    </a>
+                </div>
+                <div class="py-1">
+                    <a href="#" onclick="event.preventDefault(); window.location.href='/api/exports/scans/' + scanId + '/findings.json'" class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <svg class="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        JSON - Full Data
+                    </a>
+                    <a href="#" onclick="event.preventDefault(); window.location.href='/api/exports/scans/' + scanId + '/findings.md'" class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <svg class="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        Markdown
+                    </a>
+                </div>
+                <div class="py-1">
+                    <a href="#" onclick="event.preventDefault(); window.location.href='/api/exports/scans/' + scanId + '/findings.sarif'" class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <svg class="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                        SARIF (CI/CD)
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <script>
+        function toggleExportMenu() {
+            const menu = document.getElementById('export-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('export-menu');
+            const button = event.target.closest('button[onclick="toggleExportMenu()"]');
+            if (!button && menu && !menu.contains(event.target)) {
+                menu.classList.add('hidden');
+            }
+        });
+    </script>
 
     <!-- Progress Section (only shown when scan is running) -->
     <div id="scan-progress" class="bg-white shadow rounded-lg p-6 hidden">

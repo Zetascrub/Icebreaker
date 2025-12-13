@@ -10,6 +10,7 @@ import os
 from sqlalchemy.orm import Session
 
 from icebreaker.db.models import Scan, Finding, Service, Target
+from icebreaker.core.network_topology import NetworkTopology
 
 
 class ReportGenerator:
@@ -140,6 +141,10 @@ class ReportGenerator:
             reverse=True
         )[:10]
 
+        # Generate network topology for technical report
+        topology_generator = NetworkTopology(self.db)
+        network_topology = topology_generator.build_topology(scan_id=scan_id, limit=200)
+
         return {
             'scan': scan,
             'generated_at': datetime.utcnow(),
@@ -162,4 +167,5 @@ class ReportGenerator:
             'alive_hosts': alive_hosts,
             'top_hosts': top_hosts,
             'top_finding_types': top_finding_types,
+            'network_topology': network_topology,
         }

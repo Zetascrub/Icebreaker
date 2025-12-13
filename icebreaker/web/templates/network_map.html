@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+
+{% block title %}Network Map - Icebreaker{% endblock %}
+
+{% block head %}
+<!-- Vis.js Network -->
+<script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+    #network-container {
+        width: 100%;
+        height: 70vh;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        background: #ffffff;
+    }
+
+    .legend-item {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 1rem;
+        font-size: 0.875rem;
+    }
+
+    .legend-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-start">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Network Map</h1>
+            <p class="mt-2 text-sm text-gray-600">Interactive visualization of your network topology</p>
+        </div>
+        <div class="flex space-x-2">
+            <button onclick="resetView()" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Reset View
+            </button>
+            <button onclick="exportMap()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-4">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Hosts</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900" id="stat-hosts">-</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Services</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900" id="stat-services">-</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Findings</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900" id="stat-findings">-</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">High Risk</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-red-600" id="stat-highrisk">-</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="bg-white shadow rounded-lg p-4">
+        <h3 class="text-sm font-medium text-gray-900 mb-3">Legend</h3>
+        <div class="flex flex-wrap gap-4">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #dc2626;"></div>
+                <span class="text-gray-700">Critical Risk (30+)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ea580c;"></div>
+                <span class="text-gray-700">High Risk (15-29)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #d97706;"></div>
+                <span class="text-gray-700">Medium Risk (5-14)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #65a30d;"></div>
+                <span class="text-gray-700">Low Risk (1-4)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #0284c7;"></div>
+                <span class="text-gray-700">No Findings</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Network Visualization -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <div id="network-container"></div>
+    </div>
+
+    <!-- Node Details Panel (Hidden initially) -->
+    <div id="node-details" class="hidden bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Node Details</h3>
+        <div id="node-details-content"></div>
+    </div>
+</div>
+
+<script>
+    let network = null;
+    let networkData = null;
+
+    async function loadNetworkMap() {
+        try {
+            const response = await fetch('/api/analytics/network-topology?limit=100');
+            networkData = await response.json();
+
+            // Update stats
+            document.getElementById('stat-hosts').textContent = networkData.stats.total_hosts;
+            document.getElementById('stat-services').textContent = networkData.stats.total_services;
+            document.getElementById('stat-findings').textContent = networkData.stats.total_findings;
+            document.getElementById('stat-highrisk').textContent = networkData.stats.high_risk_hosts;
+
+            // Render network
+            renderNetwork(networkData);
+
+            showToast('Network map loaded successfully', 'success');
+        } catch (error) {
+            console.error('Error loading network map:', error);
+            showToast('Error loading network map', 'error');
+        }
+    }
+
+    function renderNetwork(data) {
+        const container = document.getElementById('network-container');
+
+        // Create nodes and edges datasets
+        const nodes = new vis.DataSet(
+            data.nodes.map(node => ({
+                id: node.id,
+                label: node.label,
+                title: `${node.label}\n${node.open_ports} services\n${node.findings.length} findings\nRisk: ${node.risk_score}`,
+                color: node.color,
+                size: node.size,
+                shape: 'dot',
+                font: { size: 12, color: '#374151' }
+            }))
+        );
+
+        const edges = new vis.DataSet(
+            data.edges.map((edge, idx) => ({
+                id: idx,
+                from: edge.from,
+                to: edge.to,
+                color: { color: '#d1d5db', highlight: '#6366f1' },
+                width: 1,
+                dashes: edge.dashes || false,
+                smooth: { type: 'continuous' }
+            }))
+        );
+
+        // Create network options
+        const options = {
+            nodes: {
+                borderWidth: 2,
+                borderWidthSelected: 4,
+                chosen: true,
+                shadow: true
+            },
+            edges: {
+                smooth: {
+                    enabled: true,
+                    type: 'continuous'
+                }
+            },
+            physics: {
+                enabled: true,
+                stabilization: {
+                    iterations: 200,
+                    updateInterval: 25
+                },
+                barnesHut: {
+                    gravitationalConstant: -8000,
+                    springConstant: 0.001,
+                    springLength: 200
+                }
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: 200,
+                navigationButtons: true,
+                keyboard: true
+            }
+        };
+
+        // Initialize network
+        network = new vis.Network(container, { nodes, edges }, options);
+
+        // Add click event to show node details
+        network.on('click', function(params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                showNodeDetails(nodeId);
+            }
+        });
+
+        // Stabilization progress
+        network.on('stabilizationProgress', function(params) {
+            const progress = Math.round((params.iterations / params.total) * 100);
+            console.log(`Stabilizing network: ${progress}%`);
+        });
+
+        network.on('stabilizationIterationsDone', function() {
+            console.log('Network stabilized');
+        });
+    }
+
+    function showNodeDetails(nodeId) {
+        const node = networkData.nodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        const detailsPanel = document.getElementById('node-details');
+        const content = document.getElementById('node-details-content');
+
+        content.innerHTML = `
+            <div class="space-y-4">
+                <div>
+                    <h4 class="text-sm font-medium text-gray-500">Host</h4>
+                    <p class="text-lg font-semibold text-gray-900">${node.label}</p>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-500">Type</h4>
+                        <p class="text-sm text-gray-900">${node.type}</p>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-500">Open Ports</h4>
+                        <p class="text-sm text-gray-900">${node.open_ports}</p>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-500">Risk Score</h4>
+                        <p class="text-sm font-semibold" style="color: ${node.color}">${node.risk_score}</p>
+                    </div>
+                </div>
+
+                ${node.services.length > 0 ? `
+                <div>
+                    <h4 class="text-sm font-medium text-gray-500 mb-2">Services</h4>
+                    <div class="space-y-1">
+                        ${node.services.slice(0, 10).map(svc => `
+                            <div class="text-xs bg-gray-50 px-2 py-1 rounded">
+                                <span class="font-mono text-indigo-600">${svc.port}</span>
+                                <span class="text-gray-500 mx-1">→</span>
+                                <span>${svc.name}</span>
+                            </div>
+                        `).join('')}
+                        ${node.services.length > 10 ? `<p class="text-xs text-gray-500">... and ${node.services.length - 10} more</p>` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
+                ${node.findings.length > 0 ? `
+                <div>
+                    <h4 class="text-sm font-medium text-gray-500 mb-2">Findings (${node.findings.length})</h4>
+                    <div class="space-y-1">
+                        ${node.findings.slice(0, 5).map(f => `
+                            <div class="text-xs flex items-start">
+                                <span class="px-2 py-0.5 rounded text-white severity-${f.severity.toLowerCase()}" style="background-color: ${getSeverityColor(f.severity)}">${f.severity}</span>
+                                <span class="ml-2 text-gray-700">${f.title}</span>
+                            </div>
+                        `).join('')}
+                        ${node.findings.length > 5 ? `<p class="text-xs text-gray-500">... and ${node.findings.length - 5} more findings</p>` : ''}
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+
+        detailsPanel.classList.remove('hidden');
+        detailsPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function getSeverityColor(severity) {
+        const colors = {
+            'CRITICAL': '#dc2626',
+            'HIGH': '#ea580c',
+            'MEDIUM': '#d97706',
+            'LOW': '#65a30d',
+            'INFO': '#0284c7'
+        };
+        return colors[severity] || '#6b7280';
+    }
+
+    function resetView() {
+        if (network) {
+            network.fit({
+                animation: {
+                    duration: 1000,
+                    easingFunction: 'easeInOutQuad'
+                }
+            });
+        }
+    }
+
+    function exportMap() {
+        if (!networkData) return;
+
+        const dataStr = JSON.stringify(networkData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `network-map-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast('Network map exported', 'success');
+    }
+
+    // Load network map on page load
+    document.addEventListener('DOMContentLoaded', loadNetworkMap);
+</script>
+{% endblock %}

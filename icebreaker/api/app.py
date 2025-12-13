@@ -85,6 +85,12 @@ async def import_page(request: Request):
     return templates.TemplateResponse("import.html", {"request": request})
 
 
+@app.get("/network-map", response_class=HTMLResponse)
+async def network_map_page(request: Request):
+    """Network topology visualization page."""
+    return templates.TemplateResponse("network_map.html", {"request": request})
+
+
 @app.websocket("/ws/scans/{scan_id}")
 async def websocket_scan_updates(websocket: WebSocket, scan_id: int):
     """WebSocket endpoint for real-time scan updates."""

@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+
+{% block title %}Import Templates - Icebreaker{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="md:flex md:items-center md:justify-between">
+        <div class="flex-1 min-w-0">
+            <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                Import Finding Templates
+            </h2>
+            <p class="mt-1 text-sm text-gray-500">
+                Upload and preview Nessus plugin archives before importing
+            </p>
+        </div>
+        <div class="mt-4 flex md:mt-0 md:ml-4">
+            <a href="/finding-templates" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                View Templates
+            </a>
+        </div>
+    </div>
+
+    <!-- Step 1: Upload & Preview -->
+    <div id="upload-section" class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Step 1: Upload & Preview</h3>
+
+        <div class="space-y-4">
+            <!-- File Upload Area -->
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition">
+                <input type="file" id="file-input" accept=".tar,.tar.gz,.tgz,.tar.bz2" class="hidden" onchange="handleFileSelect(event)">
+                <div id="upload-prompt">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <div class="mt-4">
+                        <label for="file-input" class="cursor-pointer">
+                            <span class="mt-2 block text-sm font-medium text-gray-900">
+                                Click to upload Nessus plugin archive
+                            </span>
+                            <span class="mt-1 block text-xs text-gray-500">
+                                TAR, TAR.GZ, TGZ, or TAR.BZ2 up to 500MB
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="file-selected" class="hidden">
+                    <div class="flex items-center justify-center">
+                        <svg class="h-8 w-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <span id="file-name" class="ml-2 text-sm text-gray-900"></span>
+                        <span id="file-size" class="ml-2 text-xs text-gray-500"></span>
+                    </div>
+                    <button onclick="clearFile()" class="mt-2 text-sm text-red-600 hover:text-red-800">
+                        Remove
+                    </button>
+                </div>
+            </div>
+
+            <!-- Preview Button -->
+            <div class="flex justify-end">
+                <button
+                    id="preview-btn"
+                    onclick="startPreview()"
+                    disabled
+                    class="disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                >
+                    Preview & Validate
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Results -->
+    <div id="preview-results" class="bg-white shadow rounded-lg p-6 hidden">
+        <div class="flex justify-between items-start mb-4">
+            <h3 class="text-lg font-medium text-gray-900">Preview Results</h3>
+            <button onclick="cancelPreview()" class="text-sm text-gray-500 hover:text-gray-700">
+                ✕ Cancel
+            </button>
+        </div>
+
+        <!-- Statistics -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-blue-50 rounded-lg p-4">
+                <div class="text-2xl font-bold text-blue-900" id="preview-total">0</div>
+                <div class="text-sm text-blue-700">Total Files</div>
+            </div>
+            <div class="bg-green-50 rounded-lg p-4">
+                <div class="text-2xl font-bold text-green-900" id="preview-valid">0</div>
+                <div class="text-sm text-green-700">Valid Plugins</div>
+            </div>
+            <div class="bg-yellow-50 rounded-lg p-4">
+                <div class="text-2xl font-bold text-yellow-900" id="preview-new">0</div>
+                <div class="text-sm text-yellow-700">New Templates</div>
+            </div>
+            <div class="bg-purple-50 rounded-lg p-4">
+                <div class="text-2xl font-bold text-purple-900" id="preview-updates">0</div>
+                <div class="text-sm text-purple-700">Updates</div>
+            </div>
+        </div>
+
+        <!-- Warnings -->
+        <div id="preview-warnings" class="hidden bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        <span id="preview-invalid-count" class="font-medium">0</span> plugins failed to parse
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sample Plugins -->
+        <div class="mb-6">
+            <h4 class="text-sm font-medium text-gray-900 mb-3">Sample Plugins (First 20)</h4>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">CVSS</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sample-plugins" class="bg-white divide-y divide-gray-200">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Errors -->
+        <div id="preview-errors-section" class="hidden mb-6">
+            <h4 class="text-sm font-medium text-red-900 mb-3">Parse Errors</h4>
+            <div class="bg-red-50 rounded-md p-3 max-h-40 overflow-y-auto">
+                <ul id="preview-errors-list" class="text-sm text-red-700 space-y-1">
+                    <!-- Populated by JavaScript -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- Confirm Import Button -->
+        <div class="flex justify-between items-center pt-4 border-t border-gray-200">
+            <div class="text-sm text-gray-600">
+                Ready to import? Review the statistics and samples above.
+            </div>
+            <button
+                id="confirm-import-btn"
+                onclick="confirmImport()"
+                class="px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+            >
+                ✓ Confirm Import
+            </button>
+        </div>
+    </div>
+
+    <!-- Import Progress -->
+    <div id="import-progress" class="bg-white shadow rounded-lg p-6 hidden">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Import Progress</h3>
+
+        <div class="space-y-4">
+            <!-- Progress Bar -->
+            <div>
+                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                    <span id="progress-status">Processing...</span>
+                    <span id="progress-count">0 / 0</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                    <div id="progress-bar" class="bg-indigo-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-3 gap-4 pt-4">
+                <div class="text-center">
+                    <div class="text-2xl font-semibold text-green-600" id="stat-imported">0</div>
+                    <div class="text-sm text-gray-500">Imported</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-semibold text-yellow-600" id="stat-skipped">0</div>
+                    <div class="text-sm text-gray-500">Skipped</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-semibold text-red-600" id="stat-errors">0</div>
+                    <div class="text-sm text-gray-500">Errors</div>
+                </div>
+            </div>
+
+            <!-- Errors List -->
+            <div id="errors-container" class="hidden">
+                <h4 class="text-sm font-medium text-red-900 mb-2">Errors:</h4>
+                <ul id="errors-list" class="text-sm text-red-700 space-y-1 max-h-40 overflow-y-auto">
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import History -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Import History</h3>
+        <div id="import-history">
+            <p class="text-sm text-gray-500">No import history yet</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    let selectedFile = null;
+    let currentPreviewId = null;
+    let currentJobId = null;
+    let pollInterval = null;
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        selectedFile = file;
+
+        // Show file info
+        document.getElementById('upload-prompt').classList.add('hidden');
+        document.getElementById('file-selected').classList.remove('hidden');
+        document.getElementById('file-name').textContent = file.name;
+        document.getElementById('file-size').textContent = `(${formatFileSize(file.size)})`;
+
+        // Enable preview button
+        document.getElementById('preview-btn').disabled = false;
+
+        // Hide preview results if showing
+        document.getElementById('preview-results').classList.add('hidden');
+    }
+
+    function clearFile() {
+        selectedFile = null;
+        currentPreviewId = null;
+        document.getElementById('file-input').value = '';
+        document.getElementById('upload-prompt').classList.remove('hidden');
+        document.getElementById('file-selected').classList.add('hidden');
+        document.getElementById('preview-btn').disabled = true;
+        document.getElementById('preview-results').classList.add('hidden');
+    }
+
+    async function startPreview() {
+        if (!selectedFile) return;
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        // Disable button and show loading
+        const previewBtn = document.getElementById('preview-btn');
+        previewBtn.disabled = true;
+        previewBtn.textContent = 'Validating...';
+
+        try {
+            const response = await fetch('/api/import/nessus/preview', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Preview failed');
+            }
+
+            const preview = await response.json();
+            currentPreviewId = preview.preview_id;
+
+            // Display preview results
+            displayPreview(preview);
+
+        } catch (error) {
+            console.error('Preview failed:', error);
+            showToast('Preview failed: ' + error.message, 'error');
+            previewBtn.disabled = false;
+            previewBtn.textContent = 'Preview & Validate';
+        }
+    }
+
+    function displayPreview(preview) {
+        // Show results section
+        document.getElementById('preview-results').classList.remove('hidden');
+
+        // Update statistics
+        document.getElementById('preview-total').textContent = preview.total_files;
+        document.getElementById('preview-valid').textContent = preview.estimated_valid;
+        document.getElementById('preview-new').textContent = preview.estimated_new;
+        document.getElementById('preview-updates').textContent = preview.estimated_updates;
+
+        // Show warnings if invalid plugins
+        if (preview.estimated_invalid > 0) {
+            document.getElementById('preview-warnings').classList.remove('hidden');
+            document.getElementById('preview-invalid-count').textContent = preview.estimated_invalid;
+        } else {
+            document.getElementById('preview-warnings').classList.add('hidden');
+        }
+
+        // Display sample plugins
+        const sampleTable = document.getElementById('sample-plugins');
+        sampleTable.innerHTML = preview.samples.map(sample => `
+            <tr>
+                <td class="px-3 py-2 whitespace-nowrap text-xs font-mono text-gray-900">${sample.finding_id}</td>
+                <td class="px-3 py-2 text-xs text-gray-900">${sample.title}</td>
+                <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${sample.category || '-'}</td>
+                <td class="px-3 py-2 whitespace-nowrap">
+                    <span class="severity-${sample.severity.toLowerCase()} text-xs font-semibold">${sample.severity}</span>
+                </td>
+                <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-900">${sample.cvss_score || '-'}</td>
+                <td class="px-3 py-2 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${sample.exists_in_db ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}">
+                        ${sample.exists_in_db ? 'Update' : 'New'}
+                    </span>
+                </td>
+            </tr>
+        `).join('');
+
+        // Display errors if any
+        if (preview.errors && preview.errors.length > 0) {
+            document.getElementById('preview-errors-section').classList.remove('hidden');
+            const errorsList = document.getElementById('preview-errors-list');
+            errorsList.innerHTML = preview.errors.map(err => `
+                <li><strong>${err.filename}:</strong> ${err.error}</li>
+            `).join('');
+        } else {
+            document.getElementById('preview-errors-section').classList.add('hidden');
+        }
+
+        // Reset preview button
+        const previewBtn = document.getElementById('preview-btn');
+        previewBtn.disabled = false;
+        previewBtn.textContent = 'Preview & Validate';
+
+        // Scroll to results
+        document.getElementById('preview-results').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function confirmImport() {
+        if (!currentPreviewId) {
+            showToast('No preview to confirm', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/import/nessus/confirm/${currentPreviewId}`, {
+                method: 'POST'
+            });
+
+            if (!response.ok) {
+                throw new Error('Import confirmation failed');
+            }
+
+            const result = await response.json();
+            currentJobId = result.job_id;
+
+            // Hide preview, show progress
+            document.getElementById('preview-results').classList.add('hidden');
+            document.getElementById('upload-section').classList.add('hidden');
+            document.getElementById('import-progress').classList.remove('hidden');
+
+            // Start polling for progress
+            pollInterval = setInterval(updateProgress, 1000);
+
+        } catch (error) {
+            console.error('Import failed:', error);
+            showToast('Import failed: ' + error.message, 'error');
+        }
+    }
+
+    async function cancelPreview() {
+        if (currentPreviewId) {
+            try {
+                await fetch(`/api/import/preview/${currentPreviewId}`, {
+                    method: 'DELETE'
+                });
+            } catch (error) {
+                console.error('Failed to cancel preview:', error);
+            }
+        }
+        clearFile();
+    }
+
+    async function updateProgress() {
+        if (!currentJobId) return;
+
+        try {
+            const response = await fetch(`/api/import/status/${currentJobId}`);
+            const status = await response.json();
+
+            // Update progress bar
+            const percentage = status.total > 0 ? (status.processed / status.total * 100) : 0;
+            document.getElementById('progress-bar').style.width = `${percentage}%`;
+            document.getElementById('progress-count').textContent = `${status.processed} / ${status.total}`;
+
+            // Update stats
+            document.getElementById('stat-imported').textContent = status.imported;
+            document.getElementById('stat-skipped').textContent = status.skipped;
+            document.getElementById('stat-errors').textContent = status.errors.length;
+
+            // Update status text
+            if (status.status === 'completed') {
+                document.getElementById('progress-status').textContent = '✓ Import Completed';
+                clearInterval(pollInterval);
+                resetImportUI();
+                loadImportHistory();
+                showToast(`Import completed: ${status.imported} templates imported, ${status.skipped} skipped`, 'success');
+            } else if (status.status === 'failed') {
+                document.getElementById('progress-status').textContent = '✗ Import Failed';
+                clearInterval(pollInterval);
+                resetImportUI();
+                showToast('Import failed: ' + status.error, 'error');
+            } else {
+                document.getElementById('progress-status').textContent = 'Processing...';
+            }
+
+            // Show errors if any
+            if (status.errors.length > 0) {
+                document.getElementById('errors-container').classList.remove('hidden');
+                const errorsList = document.getElementById('errors-list');
+                errorsList.innerHTML = status.errors.map(err => `<li>• ${err}</li>`).join('');
+            }
+
+        } catch (error) {
+            console.error('Failed to fetch progress:', error);
+        }
+    }
+
+    function resetImportUI() {
+        document.getElementById('upload-section').classList.remove('hidden');
+        clearFile();
+        currentJobId = null;
+        currentPreviewId = null;
+    }
+
+    async function loadImportHistory() {
+        try {
+            const response = await fetch('/api/import/jobs');
+            const data = await response.json();
+
+            const historyDiv = document.getElementById('import-history');
+
+            if (data.jobs.length === 0) {
+                historyDiv.innerHTML = '<p class="text-sm text-gray-500">No import history yet</p>';
+                return;
+            }
+
+            historyDiv.innerHTML = `
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Job ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Imported</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Started</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${data.jobs.map(job => `
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">${job.job_id}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(job.status)}">
+                                            ${job.status}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${job.total}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${job.imported}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(job.started_at).toLocaleString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+        } catch (error) {
+            console.error('Failed to load history:', error);
+        }
+    }
+
+    function getStatusColor(status) {
+        switch (status) {
+            case 'completed': return 'bg-green-100 text-green-800';
+            case 'processing': return 'bg-blue-100 text-blue-800';
+            case 'failed': return 'bg-red-100 text-red-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    // Load history on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        loadImportHistory();
+    });
+</script>
+{% endblock %}

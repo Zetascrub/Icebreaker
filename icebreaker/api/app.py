@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from pathlib import Path
 
-from icebreaker.api.routers import scans, targets, settings, finding_templates
+from icebreaker.api.routers import scans, targets, settings, finding_templates, import_templates
 from icebreaker.api.websocket import manager
 from icebreaker.db.database import init_db, get_db
 from icebreaker.db.models import Scan
@@ -39,6 +39,7 @@ app.include_router(scans.router, prefix="/api", tags=["scans"])
 app.include_router(targets.router, prefix="/api", tags=["targets"])
 app.include_router(settings.router, prefix="/api", tags=["settings"])
 app.include_router(finding_templates.router, prefix="/api", tags=["finding_templates"])
+app.include_router(import_templates.router, prefix="/api", tags=["import"])
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -75,6 +76,12 @@ async def settings_page(request: Request):
 async def finding_templates_page(request: Request):
     """Finding templates management page."""
     return templates.TemplateResponse("finding_templates.html", {"request": request})
+
+
+@app.get("/import", response_class=HTMLResponse)
+async def import_page(request: Request):
+    """Template import page."""
+    return templates.TemplateResponse("import.html", {"request": request})
 
 
 @app.websocket("/ws/scans/{scan_id}")

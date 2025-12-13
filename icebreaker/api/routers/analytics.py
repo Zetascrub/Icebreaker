@@ -2,15 +2,16 @@
 Analytics API router - Aggregate statistics and metrics for reporting.
 """
 from __future__ import annotations
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from collections import defaultdict
 from datetime import datetime, timedelta
 
 from icebreaker.db.database import get_db
 from icebreaker.db.models import Scan, Finding, Service, ScanStatus
+from icebreaker.core.network_topology import NetworkTopology
 
 router = APIRouter()
 
@@ -243,3 +244,24 @@ async def get_scan_summary(scan_id: int, db: Session = Depends(get_db)) -> Dict[
             "alive": scan.alive_hosts
         }
     }
+
+
+@router.get("/analytics/network-topology")
+async def get_network_topology(
+    scan_ids: Optional[List[int]] = Query(None),
+    limit: Optional[int] = Query(None, description="Limit number of nodes"),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Get network topology graph from scan results.
+
+    Args:
+        scan_ids: Optional list of scan IDs to include (None = all scans)
+        limit: Optional limit on number of nodes (for performance)
+        db: Database session
+
+    Returns:
+        Dictionary with nodes and edges for network visualization
+    """
+    topology = NetworkTopology(db)
+    return topology.build_topology(scan_ids=scan_ids, limit=limit)

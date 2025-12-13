@@ -228,14 +228,20 @@ async def test_tcp_probe():
 
         for test_name, ports in test_ports:
             logger.info(f"Testing ports {ports}...")
-            probe = TCPProbe(ports=ports, timeout=2.0, quiet=True, max_concurrent=10)
+            probe = TCPProbe(ports=ports, timeout=2.0, quiet=True, max_concurrent=10, verbose=True)
 
             services = await probe.run(ctx, [target])
+
+            # Capture error information
+            error_summary = {}
+            if hasattr(probe, 'connection_errors'):
+                error_summary = {k: len(v) for k, v in probe.connection_errors.items()}
 
             results["raw_results"][test_name] = {
                 "ports_scanned": ports,
                 "services_found": len(services),
-                "details": [{"port": s.port, "name": s.name, "target": s.target} for s in services]
+                "details": [{"port": s.port, "name": s.name, "target": s.target} for s in services],
+                "errors": error_summary
             }
 
             results["services_found"].extend([s.port for s in services])
@@ -243,6 +249,9 @@ async def test_tcp_probe():
             logger.info(f"Test '{test_name}': Found {len(services)} services on ports {ports}")
             for svc in services:
                 logger.info(f"  - {svc.target}:{svc.port} ({svc.name})")
+
+            if error_summary:
+                logger.info(f"Test '{test_name}': Error summary: {error_summary}")
 
         results["success"] = True
         results["message"] = f"Test completed. Found {len(set(results['services_found']))} unique open ports."
@@ -880,13 +889,14 @@ async def execute_scan(scan_id: int):
                 )
             except Exception as e:
                 # Fall back to TCP probe if nmap fails
-                print(f"Nmap initialization failed, falling back to TCP probe: {e}")
+                logger.warning(f"Scan {scan_id}: Nmap initialization failed, falling back to TCP probe: {e}")
                 port_scanner = TCPProbe(
                     timeout=timeout,
                     quiet=True,
                     ports=port_list,
                     max_concurrent=host_conc,
-                    progress_callback=port_scan_progress_callback
+                    progress_callback=port_scan_progress_callback,
+                    verbose=True  # Enable verbose logging for diagnostics
                 )
         else:
             port_scanner = TCPProbe(
@@ -894,7 +904,8 @@ async def execute_scan(scan_id: int):
                 quiet=True,
                 ports=port_list,
                 max_concurrent=host_conc,
-                progress_callback=port_scan_progress_callback
+                progress_callback=port_scan_progress_callback,
+                verbose=True  # Enable verbose logging for diagnostics
             )
 
         detectors = [

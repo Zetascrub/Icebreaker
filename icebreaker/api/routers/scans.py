@@ -187,6 +187,78 @@ async def get_scan(scan_id: int, db: Session = Depends(get_db)):
     return scan
 
 
+@router.post("/scans/test-probe")
+async def test_tcp_probe():
+    """
+    Test endpoint to verify TCP probe functionality.
+
+    Tests scanning localhost ports 5555 and 9000 directly.
+    """
+    import asyncio
+    import logging
+    from icebreaker.detectors.tcp_probe import TCPProbe
+    from icebreaker.core.models import Target, RunContext
+
+    logger = logging.getLogger(__name__)
+    logger.info("=== TCP PROBE TEST STARTED ===")
+
+    # Test basic connectivity
+    results = {
+        "test_name": "TCP Probe Direct Test",
+        "target": "127.0.0.1",
+        "ports_tested": [22, 80, 443, 5555, 9000],
+        "services_found": [],
+        "raw_results": {},
+        "errors": []
+    }
+
+    try:
+        # Create a simple context
+        ctx = RunContext.new(preset="quick", out_dir="/tmp/test-probe", settings={"quiet": True})
+
+        # Create target
+        target = Target(address="127.0.0.1")
+
+        # Test with multiple port sets
+        test_ports = [
+            ("defaults", [22, 80, 443]),
+            ("nmap_found", [5555, 9000]),
+            ("combined", [22, 80, 443, 5555, 9000])
+        ]
+
+        for test_name, ports in test_ports:
+            logger.info(f"Testing ports {ports}...")
+            probe = TCPProbe(ports=ports, timeout=2.0, quiet=True, max_concurrent=10)
+
+            services = await probe.run(ctx, [target])
+
+            results["raw_results"][test_name] = {
+                "ports_scanned": ports,
+                "services_found": len(services),
+                "details": [{"port": s.port, "name": s.name, "target": s.target} for s in services]
+            }
+
+            results["services_found"].extend([s.port for s in services])
+
+            logger.info(f"Test '{test_name}': Found {len(services)} services on ports {ports}")
+            for svc in services:
+                logger.info(f"  - {svc.target}:{svc.port} ({svc.name})")
+
+        results["success"] = True
+        results["message"] = f"Test completed. Found {len(set(results['services_found']))} unique open ports."
+
+    except Exception as e:
+        import traceback
+        error_msg = traceback.format_exc()
+        logger.error(f"TCP Probe test failed: {e}\n{error_msg}")
+        results["success"] = False
+        results["errors"].append(str(e))
+        results["error_details"] = error_msg
+
+    logger.info(f"=== TCP PROBE TEST COMPLETED: {results} ===")
+    return results
+
+
 @router.get("/scans/{scan_id}/findings", response_model=List[FindingResponse])
 async def get_scan_findings(scan_id: int, db: Session = Depends(get_db)):
     """
@@ -754,6 +826,13 @@ async def execute_scan(scan_id: int):
 
         if port_list is None:
             logger.info(f"Scan {scan_id}: No port spec provided, detectors will use their defaults (typically [22, 80, 443])")
+        else:
+            logger.info(f"Scan {scan_id}: Port list configured with {len(port_list)} ports")
+            logger.info(f"Scan {scan_id}: First 20 ports: {port_list[:20]}")
+            if 5555 in port_list or 9000 in port_list:
+                logger.info(f"Scan {scan_id}: ✓ Port list includes 5555: {5555 in port_list}, 9000: {9000 in port_list}")
+            else:
+                logger.warning(f"Scan {scan_id}: ⚠ Port list does NOT include 5555 or 9000!")
 
         # Set up detectors
         timeout = settings.get('timeout', 1.5)
@@ -822,6 +901,15 @@ async def execute_scan(scan_id: int):
             port_scanner,
             BannerGrab(timeout=timeout, quiet=True, insecure=insecure),
         ]
+
+        # Log detector configuration
+        logger.info(f"Scan {scan_id}: Created port_scanner: {type(port_scanner).__name__}")
+        logger.info(f"Scan {scan_id}: Port scanner will scan {len(port_scanner.ports)} ports")
+        logger.info(f"Scan {scan_id}: Port scanner ports: {port_scanner.ports[:20]}...")
+        if 5555 in port_scanner.ports or 9000 in port_scanner.ports:
+            logger.info(f"Scan {scan_id}: ✓ Port scanner HAS 5555: {5555 in port_scanner.ports}, 9000: {9000 in port_scanner.ports}")
+        else:
+            logger.warning(f"Scan {scan_id}: ⚠ Port scanner MISSING 5555 and 9000!")
 
         # Set up analyzers
         analyzers = [

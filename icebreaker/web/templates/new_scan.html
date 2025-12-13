@@ -3,154 +3,392 @@
 {% block title %}New Scan - Icebreaker{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto">
+<div class="max-w-6xl mx-auto">
     <!-- Page Header -->
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900">Create New Scan</h1>
-        <p class="mt-2 text-sm text-gray-600">Configure and launch a security scan</p>
+        <p class="mt-2 text-sm text-gray-600">Choose a template or customize your scan configuration</p>
     </div>
 
-    <!-- Scan Form -->
-    <form id="scan-form" class="space-y-6">
-        <!-- Scan Name -->
-        <div class="bg-white shadow rounded-lg p-6">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
-
-            <div>
-                <label for="name" class="block text-sm font-medium text-gray-700">Scan Name (optional)</label>
-                <input type="text" id="name" name="name" placeholder="Production Scan"
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
-                <p class="mt-1 text-sm text-gray-500">Give this scan a memorable name</p>
-            </div>
-        </div>
-
-        <!-- Targets -->
-        <div class="bg-white shadow rounded-lg p-6">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">Targets</h3>
-
-            <div>
-                <label for="targets" class="block text-sm font-medium text-gray-700">Target Hosts</label>
-                <textarea id="targets" name="targets" rows="4" required
-                    placeholder="example.com&#10;192.168.1.1&#10;10.0.0.0/24"
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"></textarea>
-                <p class="mt-1 text-sm text-gray-500">One host, IP, or CIDR range per line</p>
-            </div>
-        </div>
-
-        <!-- Scan Configuration -->
-        <div class="bg-white shadow rounded-lg p-6">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">Configuration</h3>
-
-            <div class="space-y-4">
-                <div>
-                    <label for="preset" class="block text-sm font-medium text-gray-700">Scan Preset</label>
-                    <select id="preset" name="preset"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
-                        <option value="quick">Quick (ports 22,80,443)</option>
-                        <option value="standard">Standard (top 100 ports)</option>
-                        <option value="thorough">Thorough (top 1000 ports)</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="ports" class="block text-sm font-medium text-gray-700">Custom Ports (optional)</label>
-                    <input type="text" id="ports" name="ports" placeholder="80,443,8080 or 8000-8100"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
-                    <p class="mt-1 text-sm text-gray-500">Leave blank to use preset ports</p>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label for="host_conc" class="block text-sm font-medium text-gray-700">Host Concurrency</label>
-                        <input type="number" id="host_conc" name="host_conc" value="128" min="1" max="1000"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+    <!-- Template Selector -->
+    <div id="template-selector" class="mb-8">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Select Scan Template</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Quick Web Scan Template -->
+            <div class="template-card cursor-pointer border-2 border-gray-200 rounded-lg p-6 hover:border-indigo-500 hover:shadow-lg transition" data-template="quick-web">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-10 w-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
                     </div>
-                    <div>
-                        <label for="svc_conc" class="block text-sm font-medium text-gray-700">Service Concurrency</label>
-                        <input type="number" id="svc_conc" name="svc_conc" value="256" min="1" max="2000"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
-                    </div>
-                </div>
-
-                <div>
-                    <label for="timeout" class="block text-sm font-medium text-gray-700">Timeout (seconds)</label>
-                    <input type="number" id="timeout" name="timeout" value="1.5" min="0.1" step="0.1" max="30"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
-                </div>
-
-                <div class="space-y-2">
-                    <div class="flex items-center">
-                        <input type="checkbox" id="insecure" name="insecure"
-                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                        <label for="insecure" class="ml-2 block text-sm text-gray-900">
-                            Disable SSL verification (insecure)
-                        </label>
-                    </div>
-
-                    <div class="flex items-center">
-                        <input type="checkbox" id="skip_ping_sweep" name="skip_ping_sweep"
-                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                        <label for="skip_ping_sweep" class="ml-2 block text-sm text-gray-900">
-                            Skip ping sweep (scan all targets, useful if ICMP is blocked)
-                        </label>
-                    </div>
-
-                    <div class="flex items-center">
-                        <input type="checkbox" id="use_nmap" name="use_nmap"
-                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                        <label for="use_nmap" class="ml-2 block text-sm text-gray-900">
-                            Use nmap for faster scanning (10-100x speed improvement on large networks)
-                        </label>
+                    <div class="ml-4 flex-1">
+                        <h3 class="text-lg font-medium text-gray-900">Quick Web Scan</h3>
+                        <p class="mt-2 text-sm text-gray-500">Fast scan for common web ports (80, 443, 8080, 8443). Perfect for quick checks on web applications.</p>
+                        <div class="mt-4 flex items-center text-xs text-gray-500">
+                            <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100">⚡ ~1-2 min</span>
+                            <span class="ml-2 inline-flex items-center px-2 py-1 rounded bg-gray-100">4 ports</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- AI Analysis -->
-        <div class="bg-white shadow rounded-lg p-6">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">AI Analysis</h3>
-
-            <div class="space-y-4">
-                <div>
-                    <label for="ai_provider" class="block text-sm font-medium text-gray-700">AI Provider</label>
-                    <select id="ai_provider" name="ai_provider"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
-                        <option value="">None</option>
-                        <option value="ollama">Ollama (local)</option>
-                        <option value="anthropic">Anthropic Claude</option>
-                        <option value="openai">OpenAI</option>
-                    </select>
-                </div>
-
-                <div id="ai_options" class="hidden space-y-4">
-                    <div>
-                        <label for="ai_model" class="block text-sm font-medium text-gray-700">Model</label>
-                        <input type="text" id="ai_model" name="ai_model" placeholder="llama3.2"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+            <!-- Full Network Audit Template -->
+            <div class="template-card cursor-pointer border-2 border-gray-200 rounded-lg p-6 hover:border-indigo-500 hover:shadow-lg transition" data-template="full-audit">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-10 w-10 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
                     </div>
+                    <div class="ml-4 flex-1">
+                        <h3 class="text-lg font-medium text-gray-900">Full Network Audit</h3>
+                        <p class="mt-2 text-sm text-gray-500">Comprehensive scan of top 1000 ports. Thorough analysis suitable for security audits and compliance.</p>
+                        <div class="mt-4 flex items-center text-xs text-gray-500">
+                            <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100">⏱️ ~5-10 min</span>
+                            <span class="ml-2 inline-flex items-center px-2 py-1 rounded bg-gray-100">1000 ports</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                    <div id="ai_base_url_container" class="hidden">
-                        <label for="ai_base_url" class="block text-sm font-medium text-gray-700">Base URL</label>
-                        <input type="text" id="ai_base_url" name="ai_base_url" placeholder="http://localhost:11434"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+            <!-- Cloud Infrastructure Template -->
+            <div class="template-card cursor-pointer border-2 border-gray-200 rounded-lg p-6 hover:border-indigo-500 hover:shadow-lg transition" data-template="cloud-infra">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-10 w-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <h3 class="text-lg font-medium text-gray-900">Cloud Infrastructure</h3>
+                        <p class="mt-2 text-sm text-gray-500">Optimized for AWS, Azure, GCP. Scans common cloud service ports with ping sweep disabled.</p>
+                        <div class="mt-4 flex items-center text-xs text-gray-500">
+                            <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100">☁️ ~3-5 min</span>
+                            <span class="ml-2 inline-flex items-center px-2 py-1 rounded bg-gray-100">Top 100</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Internal Network Template -->
+            <div class="template-card cursor-pointer border-2 border-gray-200 rounded-lg p-6 hover:border-indigo-500 hover:shadow-lg transition" data-template="internal-network">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-10 w-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <h3 class="text-lg font-medium text-gray-900">Internal Network</h3>
+                        <p class="mt-2 text-sm text-gray-500">Scan internal networks (10.x, 172.x, 192.168.x). Includes SMB, RDP, database ports.</p>
+                        <div class="mt-4 flex items-center text-xs text-gray-500">
+                            <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100">🏢 ~2-4 min</span>
+                            <span class="ml-2 inline-flex items-center px-2 py-1 rounded bg-gray-100">Top 100</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Localhost/Container Scan Template -->
+            <div class="template-card cursor-pointer border-2 border-gray-200 rounded-lg p-6 hover:border-indigo-500 hover:shadow-lg transition" data-template="localhost">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-10 w-10 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <h3 class="text-lg font-medium text-gray-900">Localhost/Development</h3>
+                        <p class="mt-2 text-sm text-gray-500">Scan local services and containers. All ports, no ping sweep. Great for development environments.</p>
+                        <div class="mt-4 flex items-center text-xs text-gray-500">
+                            <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100">💻 ~5-15 min</span>
+                            <span class="ml-2 inline-flex items-center px-2 py-1 rounded bg-gray-100">All 65535</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Template -->
+            <div class="template-card cursor-pointer border-2 border-gray-200 rounded-lg p-6 hover:border-indigo-500 hover:shadow-lg transition" data-template="custom">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-10 w-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <h3 class="text-lg font-medium text-gray-900">Custom Configuration</h3>
+                        <p class="mt-2 text-sm text-gray-500">Configure all scan parameters manually. Full control over ports, timing, and options.</p>
+                        <div class="mt-4 flex items-center text-xs text-gray-500">
+                            <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100">⚙️ Flexible</span>
+                            <span class="ml-2 inline-flex items-center px-2 py-1 rounded bg-gray-100">You decide</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Actions -->
-        <div class="flex justify-end space-x-3">
-            <a href="/" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                Cancel
-            </a>
-            <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                Start Scan
+    <!-- Scan Form (hidden initially) -->
+    <div id="scan-form-container" class="hidden">
+        <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-lg font-medium text-gray-900">
+                Configure Scan: <span id="selected-template-name" class="text-indigo-600"></span>
+            </h2>
+            <button type="button" onclick="resetTemplateSelection()" class="text-sm text-gray-500 hover:text-gray-700">
+                ← Back to templates
             </button>
         </div>
-    </form>
+
+        <form id="scan-form" class="space-y-6">
+            <!-- Scan Name -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Scan Name (optional)</label>
+                    <input type="text" id="name" name="name" placeholder="Production Scan"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                    <p class="mt-1 text-sm text-gray-500">Give this scan a memorable name</p>
+                </div>
+            </div>
+
+            <!-- Targets -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Targets</h3>
+
+                <div>
+                    <label for="targets" class="block text-sm font-medium text-gray-700">Target Hosts</label>
+                    <textarea id="targets" name="targets" rows="4" required
+                        placeholder="example.com&#10;192.168.1.1&#10;10.0.0.0/24"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"></textarea>
+                    <p class="mt-1 text-sm text-gray-500">One host, IP, or CIDR range per line</p>
+                </div>
+            </div>
+
+            <!-- Scan Configuration -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Configuration</h3>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="preset" class="block text-sm font-medium text-gray-700">Scan Preset</label>
+                        <select id="preset" name="preset"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                            <option value="quick">Quick (ports 22,80,443)</option>
+                            <option value="standard">Standard (top 100 ports)</option>
+                            <option value="thorough">Thorough (top 1000 ports)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="ports" class="block text-sm font-medium text-gray-700">Custom Ports (optional)</label>
+                        <input type="text" id="ports" name="ports" placeholder="80,443,8080 or 8000-8100"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                        <p class="mt-1 text-sm text-gray-500">Leave blank to use preset ports. Common: top100, top1000, or 1-65535</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="host_conc" class="block text-sm font-medium text-gray-700">Host Concurrency</label>
+                            <input type="number" id="host_conc" name="host_conc" value="128" min="1" max="1000"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                        </div>
+                        <div>
+                            <label for="svc_conc" class="block text-sm font-medium text-gray-700">Service Concurrency</label>
+                            <input type="number" id="svc_conc" name="svc_conc" value="256" min="1" max="2000"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="timeout" class="block text-sm font-medium text-gray-700">Timeout (seconds)</label>
+                        <input type="number" id="timeout" name="timeout" value="1.5" min="0.1" step="0.1" max="30"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="insecure" name="insecure"
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                            <label for="insecure" class="ml-2 block text-sm text-gray-900">
+                                Disable SSL verification (insecure)
+                            </label>
+                        </div>
+
+                        <div class="flex items-center">
+                            <input type="checkbox" id="skip_ping_sweep" name="skip_ping_sweep"
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                            <label for="skip_ping_sweep" class="ml-2 block text-sm text-gray-900">
+                                Skip ping sweep (scan all targets, useful if ICMP is blocked)
+                            </label>
+                        </div>
+
+                        <div class="flex items-center">
+                            <input type="checkbox" id="use_nmap" name="use_nmap"
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                            <label for="use_nmap" class="ml-2 block text-sm text-gray-900">
+                                Use nmap for faster scanning (10-100x speed improvement on large networks)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Analysis -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">AI Analysis (Optional)</h3>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="ai_provider" class="block text-sm font-medium text-gray-700">AI Provider</label>
+                        <select id="ai_provider" name="ai_provider"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                            <option value="">None</option>
+                            <option value="ollama">Ollama (local)</option>
+                            <option value="anthropic">Anthropic Claude</option>
+                            <option value="openai">OpenAI</option>
+                        </select>
+                    </div>
+
+                    <div id="ai_options" class="hidden space-y-4">
+                        <div>
+                            <label for="ai_model" class="block text-sm font-medium text-gray-700">Model</label>
+                            <input type="text" id="ai_model" name="ai_model" placeholder="llama3.2"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                        </div>
+
+                        <div id="ai_base_url_container" class="hidden">
+                            <label for="ai_base_url" class="block text-sm font-medium text-gray-700">Base URL</label>
+                            <input type="text" id="ai_base_url" name="ai_base_url" placeholder="http://localhost:11434"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-end space-x-3">
+                <a href="/" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Cancel
+                </a>
+                <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Start Scan
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>
+    // Scan template definitions
+    const scanTemplates = {
+        'quick-web': {
+            name: 'Quick Web Scan',
+            preset: 'quick',
+            ports: '80,443,8080,8443',
+            host_conc: 128,
+            svc_conc: 256,
+            timeout: 1.5,
+            skip_ping_sweep: false,
+            use_nmap: false,
+            insecure: false
+        },
+        'full-audit': {
+            name: 'Full Network Audit',
+            preset: 'thorough',
+            ports: 'top1000',
+            host_conc: 256,
+            svc_conc: 512,
+            timeout: 2.0,
+            skip_ping_sweep: false,
+            use_nmap: true,
+            insecure: false
+        },
+        'cloud-infra': {
+            name: 'Cloud Infrastructure',
+            preset: 'standard',
+            ports: 'top100',
+            host_conc: 128,
+            svc_conc: 256,
+            timeout: 2.0,
+            skip_ping_sweep: true,  // Cloud often blocks ICMP
+            use_nmap: false,
+            insecure: false
+        },
+        'internal-network': {
+            name: 'Internal Network',
+            preset: 'standard',
+            ports: 'top100',
+            host_conc: 256,
+            svc_conc: 512,
+            timeout: 1.0,
+            skip_ping_sweep: false,
+            use_nmap: true,
+            insecure: false
+        },
+        'localhost': {
+            name: 'Localhost/Development',
+            preset: 'thorough',
+            ports: '1-65535',
+            host_conc: 512,
+            svc_conc: 1024,
+            timeout: 0.5,
+            skip_ping_sweep: true,
+            use_nmap: false,
+            insecure: true
+        },
+        'custom': {
+            name: 'Custom Configuration',
+            preset: 'standard',
+            ports: '',
+            host_conc: 128,
+            svc_conc: 256,
+            timeout: 1.5,
+            skip_ping_sweep: false,
+            use_nmap: false,
+            insecure: false
+        }
+    };
+
+    // Template selection
+    document.querySelectorAll('.template-card').forEach(card => {
+        card.addEventListener('click', function() {
+            const templateId = this.dataset.template;
+            selectTemplate(templateId);
+        });
+    });
+
+    function selectTemplate(templateId) {
+        const template = scanTemplates[templateId];
+        if (!template) return;
+
+        // Hide template selector, show form
+        document.getElementById('template-selector').classList.add('hidden');
+        document.getElementById('scan-form-container').classList.remove('hidden');
+        document.getElementById('selected-template-name').textContent = template.name;
+
+        // Pre-fill form with template values
+        document.getElementById('preset').value = template.preset;
+        document.getElementById('ports').value = template.ports;
+        document.getElementById('host_conc').value = template.host_conc;
+        document.getElementById('svc_conc').value = template.svc_conc;
+        document.getElementById('timeout').value = template.timeout;
+        document.getElementById('skip_ping_sweep').checked = template.skip_ping_sweep;
+        document.getElementById('use_nmap').checked = template.use_nmap;
+        document.getElementById('insecure').checked = template.insecure;
+
+        // Scroll to form
+        document.getElementById('scan-form-container').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetTemplateSelection() {
+        document.getElementById('template-selector').classList.remove('hidden');
+        document.getElementById('scan-form-container').classList.add('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     // Toggle AI options
     document.getElementById('ai_provider').addEventListener('change', function() {
         const aiOptions = document.getElementById('ai_options');

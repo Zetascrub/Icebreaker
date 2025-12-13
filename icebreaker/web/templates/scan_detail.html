@@ -70,6 +70,58 @@
         <div class="p-6">
             <!-- Findings Tab -->
             <div id="findings-content" class="tab-content">
+                <!-- Filters and Controls -->
+                <div class="mb-6 bg-gray-50 p-4 rounded-lg space-y-4">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <!-- Search -->
+                        <div class="flex-1 min-w-64">
+                            <input type="text" id="finding-search" placeholder="Search findings..."
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                   oninput="filterFindings()">
+                        </div>
+
+                        <!-- Severity Filter -->
+                        <select id="severity-filter" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterFindings()">
+                            <option value="">All Severities</option>
+                            <option value="CRITICAL">Critical</option>
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="LOW">Low</option>
+                            <option value="INFO">Info</option>
+                        </select>
+
+                        <!-- Status Filter -->
+                        <select id="status-filter" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterFindings()">
+                            <option value="">All Statuses</option>
+                            <option value="new">New</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="fixed">Fixed</option>
+                            <option value="false_positive">False Positive</option>
+                        </select>
+
+                        <!-- Sort -->
+                        <select id="sort-by" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterFindings()">
+                            <option value="risk_desc">Risk Score (High to Low)</option>
+                            <option value="risk_asc">Risk Score (Low to High)</option>
+                            <option value="severity_desc">Severity (High to Low)</option>
+                            <option value="severity_asc">Severity (Low to High)</option>
+                            <option value="title_asc">Title (A-Z)</option>
+                            <option value="title_desc">Title (Z-A)</option>
+                        </select>
+
+                        <!-- Export All -->
+                        <button onclick="exportAllFindings()" class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            ⬇ Export All
+                        </button>
+                    </div>
+
+                    <!-- Stats Bar -->
+                    <div class="flex items-center text-sm text-gray-600">
+                        <span id="findings-stats">Loading...</span>
+                    </div>
+                </div>
+
                 <div id="findings-list">
                     <div class="text-center py-8">
                         <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24">
@@ -124,6 +176,8 @@
 <script>
     const scanId = {{ scan_id }};
     let currentScan = null;
+    let allFindings = [];  // Store all findings for filtering/sorting
+    let findings = [];  // Store current findings after filtering
 
     async function loadScanDetails() {
         try {
@@ -198,15 +252,92 @@
     async function loadFindings() {
         try {
             const response = await fetch(`/api/scans/${scanId}/findings`);
-            const findings = await response.json();
+            allFindings = await response.json();
+            findings = allFindings;
 
-            const list = document.getElementById('findings-list');
-            if (findings.length === 0) {
-                list.innerHTML = '<p class="text-center text-gray-500 py-8">No findings detected</p>';
-                return;
+            filterFindings();  // Initial render with no filters
+
+        } catch (error) {
+            console.error('Error loading findings:', error);
+            showToast('Error loading findings', 'error');
+        }
+    }
+
+    function filterFindings() {
+        const searchTerm = document.getElementById('finding-search')?.value.toLowerCase() || '';
+        const severityFilter = document.getElementById('severity-filter')?.value || '';
+        const statusFilter = document.getElementById('status-filter')?.value || '';
+        const sortBy = document.getElementById('sort-by')?.value || 'risk_desc';
+
+        // Filter findings
+        findings = allFindings.filter(finding => {
+            // Search filter
+            const matchesSearch = !searchTerm ||
+                finding.title.toLowerCase().includes(searchTerm) ||
+                finding.target.toLowerCase().includes(searchTerm) ||
+                finding.finding_id.toLowerCase().includes(searchTerm);
+
+            // Severity filter
+            const matchesSeverity = !severityFilter || finding.severity === severityFilter;
+
+            // Status filter
+            const matchesStatus = !statusFilter || finding.status === statusFilter;
+
+            return matchesSearch && matchesSeverity && matchesStatus;
+        });
+
+        // Sort findings
+        const severityOrder = { 'CRITICAL': 5, 'HIGH': 4, 'MEDIUM': 3, 'LOW': 2, 'INFO': 1 };
+
+        findings.sort((a, b) => {
+            switch (sortBy) {
+                case 'risk_desc':
+                    return (b.risk_score || 0) - (a.risk_score || 0);
+                case 'risk_asc':
+                    return (a.risk_score || 0) - (b.risk_score || 0);
+                case 'severity_desc':
+                    return severityOrder[b.severity] - severityOrder[a.severity];
+                case 'severity_asc':
+                    return severityOrder[a.severity] - severityOrder[b.severity];
+                case 'title_asc':
+                    return a.title.localeCompare(b.title);
+                case 'title_desc':
+                    return b.title.localeCompare(a.title);
+                default:
+                    return (b.risk_score || 0) - (a.risk_score || 0);
             }
+        });
 
-            list.innerHTML = findings.map(finding => `
+        // Update stats
+        const severityCounts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+        findings.forEach(f => {
+            if (severityCounts[f.severity] !== undefined) {
+                severityCounts[f.severity]++;
+            }
+        });
+
+        document.getElementById('findings-stats').innerHTML = `
+            Showing ${findings.length} of ${allFindings.length} findings
+            <span class="ml-4 text-red-600 font-medium">${severityCounts.CRITICAL} Critical</span>
+            <span class="ml-2 text-orange-600 font-medium">${severityCounts.HIGH} High</span>
+            <span class="ml-2 text-amber-600 font-medium">${severityCounts.MEDIUM} Medium</span>
+            <span class="ml-2 text-lime-600 font-medium">${severityCounts.LOW} Low</span>
+            <span class="ml-2 text-sky-600 font-medium">${severityCounts.INFO} Info</span>
+        `;
+
+        // Render findings
+        renderFindings();
+    }
+
+    function renderFindings() {
+        const list = document.getElementById('findings-list');
+
+        if (findings.length === 0) {
+            list.innerHTML = '<p class="text-center text-gray-500 py-8">No findings match your filters</p>';
+            return;
+        }
+
+        list.innerHTML = findings.map(finding => `
                 <div class="border-b border-gray-200 last:border-0 py-4 hover:bg-gray-50 transition">
                     <div class="flex items-start justify-between">
                         <div class="flex-1 cursor-pointer" onclick="viewFindingDetails(${finding.id})">
@@ -241,11 +372,6 @@
                     </div>
                 </div>
             `).join('');
-
-        } catch (error) {
-            console.error('Error loading findings:', error);
-            showToast('Error loading findings', 'error');
-        }
     }
 
     async function loadServices() {
@@ -715,6 +841,103 @@
 
         } catch (error) {
             console.error('Export failed:', error);
+            showToast('Export failed: ' + error.message, 'error');
+        }
+    }
+
+    async function exportAllFindings() {
+        try {
+            // Use the currently filtered findings
+            const findingsToExport = findings.length > 0 ? findings : allFindings;
+
+            if (findingsToExport.length === 0) {
+                showToast('No findings to export', 'info');
+                return;
+            }
+
+            // Get templates for all findings that have them
+            const templateIds = [...new Set(findingsToExport.filter(f => f.template_id).map(f => f.template_id))];
+            const templates = {};
+
+            for (const templateId of templateIds) {
+                try {
+                    const templateResponse = await fetch(`/api/finding-templates/${templateId}`);
+                    templates[templateId] = await templateResponse.json();
+                } catch (e) {
+                    console.warn(`Failed to load template ${templateId}:`, e);
+                }
+            }
+
+            // Create export data with templates
+            const exportData = {
+                scan: {
+                    id: currentScan.id,
+                    name: currentScan.name || currentScan.run_id,
+                    started_at: currentScan.started_at,
+                    completed_at: currentScan.completed_at,
+                    status: currentScan.status
+                },
+                summary: {
+                    total_findings: findingsToExport.length,
+                    severity_breakdown: {
+                        critical: findingsToExport.filter(f => f.severity === 'CRITICAL').length,
+                        high: findingsToExport.filter(f => f.severity === 'HIGH').length,
+                        medium: findingsToExport.filter(f => f.severity === 'MEDIUM').length,
+                        low: findingsToExport.filter(f => f.severity === 'LOW').length,
+                        info: findingsToExport.filter(f => f.severity === 'INFO').length
+                    }
+                },
+                findings: findingsToExport.map(finding => {
+                    const exportFinding = {
+                        finding_id: finding.finding_id,
+                        title: finding.title,
+                        severity: finding.severity,
+                        target: finding.target,
+                        port: finding.port,
+                        confidence: finding.confidence,
+                        risk_score: finding.risk_score,
+                        tags: finding.tags,
+                        details: finding.details,
+                        recommendation: finding.recommendation,
+                        false_positive: finding.false_positive,
+                        status: finding.status
+                    };
+
+                    if (finding.template_id && templates[finding.template_id]) {
+                        const template = templates[finding.template_id];
+                        exportFinding.template = {
+                            description: template.description,
+                            impact: template.impact,
+                            remediation: template.remediation,
+                            cvss_score: template.cvss_score,
+                            cvss_vector: template.cvss_vector,
+                            cwe_id: template.cwe_id,
+                            owasp_2021: template.owasp_2021,
+                            pci_dss: template.pci_dss,
+                            nist_csf: template.nist_csf,
+                            references: template.references
+                        };
+                    }
+
+                    return exportFinding;
+                })
+            };
+
+            // Download as JSON
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `scan_${currentScan.id}_findings_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast(`${findingsToExport.length} findings exported successfully`, 'success');
+
+        } catch (error) {
+            console.error('Bulk export failed:', error);
             showToast('Export failed: ' + error.message, 'error');
         }
     }

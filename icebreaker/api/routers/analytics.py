@@ -248,15 +248,15 @@ async def get_scan_summary(scan_id: int, db: Session = Depends(get_db)) -> Dict[
 
 @router.get("/analytics/network-topology")
 async def get_network_topology(
-    scan_ids: Optional[List[int]] = Query(None),
+    scan_id: int = Query(..., description="Scan ID (required for data isolation)"),
     limit: Optional[int] = Query(None, description="Limit number of nodes"),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Get network topology graph from scan results.
+    Get network topology graph from scan results for a specific scan.
 
     Args:
-        scan_ids: Optional list of scan IDs to include (None = all scans)
+        scan_id: Scan ID (required to prevent data leaks between clients)
         limit: Optional limit on number of nodes (for performance)
         db: Database session
 
@@ -264,4 +264,4 @@ async def get_network_topology(
         Dictionary with nodes and edges for network visualization
     """
     topology = NetworkTopology(db)
-    return topology.build_topology(scan_ids=scan_ids, limit=limit)
+    return topology.build_topology(scan_id=scan_id, limit=limit)

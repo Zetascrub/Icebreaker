@@ -16,22 +16,33 @@ class NetworkTopology:
     def __init__(self, db: Session):
         self.db = db
 
-    def build_topology(self, scan_ids: List[int] = None, limit: int = None) -> Dict[str, Any]:
+    def build_topology(self, scan_id: int, limit: int = None) -> Dict[str, Any]:
         """
-        Build network topology from scan results.
+        Build network topology from scan results for a specific scan.
 
         Args:
-            scan_ids: List of scan IDs to include (None = all scans)
+            scan_id: Scan ID (required to prevent data leaks between clients)
             limit: Limit number of nodes (for performance)
 
         Returns:
             Dictionary with nodes and edges for network graph
         """
-        # Get scans to analyze
-        query = self.db.query(Scan)
-        if scan_ids:
-            query = query.filter(Scan.id.in_(scan_ids))
-        scans = query.all()
+        # Get the specific scan only (never mix scans from different clients)
+        scan = self.db.query(Scan).filter(Scan.id == scan_id).first()
+        if not scan:
+            return {
+                'nodes': [],
+                'edges': [],
+                'stats': {
+                    'total_hosts': 0,
+                    'total_services': 0,
+                    'total_findings': 0,
+                    'high_risk_hosts': 0
+                },
+                'error': 'Scan not found'
+            }
+
+        scans = [scan]
 
         # Build network graph
         nodes = {}  # host -> node data

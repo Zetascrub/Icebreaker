@@ -7,7 +7,7 @@ from collections import defaultdict
 import ipaddress
 from sqlalchemy.orm import Session
 
-from icebreaker.db.models import Scan, Service, Finding
+from icebreaker.db.models import Scan, Service, Finding, Target
 
 
 class NetworkTopology:
@@ -42,56 +42,71 @@ class NetworkTopology:
                 'error': 'Scan not found'
             }
 
-        scans = [scan]
-
         # Build network graph
         nodes = {}  # host -> node data
         edges = []  # connections between hosts
         host_services = defaultdict(list)  # host -> services
         host_findings = defaultdict(list)  # host -> findings
 
-        # Collect all hosts and their services
-        for scan in scans:
-            services = self.db.query(Service).filter(Service.scan_id == scan.id).all()
+        # First, get all alive hosts from the ping sweep (Target table)
+        alive_targets = self.db.query(Target).filter(
+            Target.scan_id == scan_id,
+            Target.is_alive == True
+        ).all()
 
-            for service in services:
-                host = service.target
+        # Initialize nodes for all alive hosts (even those without services)
+        for target in alive_targets:
+            host = target.address
+            nodes[host] = {
+                'id': host,
+                'label': host,
+                'type': self._classify_host(host),
+                'services': [],
+                'findings': [],
+                'risk_score': 0,
+                'open_ports': 0
+            }
 
-                # Add service to host
-                host_services[host].append({
-                    'port': service.port,
-                    'name': service.name,
-                    'meta': service.meta
-                })
+        # Now add services to the nodes
+        services = self.db.query(Service).filter(Service.scan_id == scan_id).all()
 
-                # Initialize node if not exists
-                if host not in nodes:
-                    nodes[host] = {
-                        'id': host,
-                        'label': host,
-                        'type': self._classify_host(host),
-                        'services': [],
-                        'findings': [],
-                        'risk_score': 0,
-                        'open_ports': 0
-                    }
+        for service in services:
+            host = service.target
+
+            # Add service to host
+            host_services[host].append({
+                'port': service.port,
+                'name': service.name,
+                'meta': service.meta
+            })
+
+            # If this host wasn't in alive_targets, add it now (shouldn't happen but good safety)
+            if host not in nodes:
+                nodes[host] = {
+                    'id': host,
+                    'label': host,
+                    'type': self._classify_host(host),
+                    'services': [],
+                    'findings': [],
+                    'risk_score': 0,
+                    'open_ports': 0
+                }
 
         # Collect findings for each host
-        for scan in scans:
-            findings = self.db.query(Finding).filter(
-                Finding.scan_id == scan.id,
-                Finding.false_positive == False
-            ).all()
+        findings = self.db.query(Finding).filter(
+            Finding.scan_id == scan_id,
+            Finding.false_positive == False
+        ).all()
 
-            for finding in findings:
-                host = finding.target
-                if host in nodes:
-                    host_findings[host].append({
-                        'severity': finding.severity,
-                        'title': finding.title,
-                        'port': finding.port,
-                        'risk_score': finding.risk_score or 0
-                    })
+        for finding in findings:
+            host = finding.target
+            if host in nodes:
+                host_findings[host].append({
+                    'severity': finding.severity,
+                    'title': finding.title,
+                    'port': finding.port,
+                    'risk_score': finding.risk_score or 0
+                })
 
         # Aggregate data into nodes
         for host, node in nodes.items():
@@ -111,8 +126,9 @@ class NetworkTopology:
             node['risk_score'] = total_risk
 
             # Determine node color based on risk
-            node['color'] = self._get_risk_color(total_risk)
-            node['size'] = min(10 + node['open_ports'] * 2, 50)  # Size based on services
+            node['color'] = self._get_risk_color(total_risk, node['open_ports'])
+            # Size based on services (minimum 15 for hosts without services)
+            node['size'] = max(15, min(10 + node['open_ports'] * 2, 50))
 
         # Build edges (connections between hosts on same network)
         edges = self._build_edges(list(nodes.keys()))
@@ -139,7 +155,8 @@ class NetworkTopology:
                 'total_hosts': len(nodes_list),
                 'total_services': sum(n['open_ports'] for n in nodes_list),
                 'total_findings': sum(len(n['findings']) for n in nodes_list),
-                'high_risk_hosts': len([n for n in nodes_list if n['risk_score'] >= 20])
+                'high_risk_hosts': len([n for n in nodes_list if n['risk_score'] >= 20]),
+                'icmp_only_hosts': len([n for n in nodes_list if n['open_ports'] == 0])
             }
         }
 
@@ -161,8 +178,8 @@ class NetworkTopology:
             # It's a hostname, not an IP
             return 'hostname'
 
-    def _get_risk_color(self, risk_score: int) -> str:
-        """Get color based on risk score."""
+    def _get_risk_color(self, risk_score: int, open_ports: int = 0) -> str:
+        """Get color based on risk score and service status."""
         if risk_score >= 30:
             return '#dc2626'  # red - critical
         elif risk_score >= 15:
@@ -171,8 +188,10 @@ class NetworkTopology:
             return '#d97706'  # amber - medium
         elif risk_score > 0:
             return '#65a30d'  # lime - low
+        elif open_ports > 0:
+            return '#0284c7'  # blue - no findings but has services
         else:
-            return '#0284c7'  # blue - no findings
+            return '#6b7280'  # gray - alive but no services (ICMP only)
 
     def _build_edges(self, hosts: List[str]) -> List[Dict[str, Any]]:
         """

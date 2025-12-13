@@ -158,7 +158,11 @@
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background-color: #0284c7;"></div>
-                <span class="text-gray-700">No Findings</span>
+                <span class="text-gray-700">Services, No Findings</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #6b7280;"></div>
+                <span class="text-gray-700">Alive, No Services (ICMP Only)</span>
             </div>
         </div>
     </div>
@@ -245,15 +249,18 @@
 
         // Create nodes and edges datasets
         const nodes = new vis.DataSet(
-            data.nodes.map(node => ({
-                id: node.id,
-                label: node.label,
-                title: `${node.label}\n${node.open_ports} services\n${node.findings.length} findings\nRisk: ${node.risk_score}`,
-                color: node.color,
-                size: node.size,
-                shape: 'dot',
-                font: { size: 12, color: '#374151' }
-            }))
+            data.nodes.map(node => {
+                const statusText = node.open_ports === 0 ? 'ICMP Response Only' : `${node.open_ports} open services`;
+                return {
+                    id: node.id,
+                    label: node.label,
+                    title: `${node.label}\nStatus: ${statusText}\nFindings: ${node.findings.length}\nRisk Score: ${node.risk_score}`,
+                    color: node.color,
+                    size: node.size,
+                    shape: 'dot',
+                    font: { size: 12, color: '#374151' }
+                };
+            })
         );
 
         const edges = new vis.DataSet(
@@ -367,7 +374,14 @@
                         ${node.services.length > 10 ? `<p class="text-xs text-gray-500">... and ${node.services.length - 10} more</p>` : ''}
                     </div>
                 </div>
-                ` : ''}
+                ` : `
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <p class="text-sm text-gray-600">
+                        <span class="font-medium">ICMP Response Only</span><br>
+                        This host responded to ping but has no open ports/services detected.
+                    </p>
+                </div>
+                `}
 
                 ${node.findings.length > 0 ? `
                 <div>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Executive Summary - {{ scan.name or scan.run_id }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            .no-print { display: none; }
+            .page-break { page-break-after: always; }
+        }
+        .severity-critical { color: #dc2626; }
+        .severity-high { color: #ea580c; }
+        .severity-medium { color: #ca8a04; }
+        .severity-low { color: #65a30d; }
+        .severity-info { color: #0284c7; }
+    </style>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-5xl mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold">🧊 Icebreaker</h1>
+                    <p class="text-indigo-200 mt-1">Security Assessment Report</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-indigo-200">Generated</p>
+                    <p class="font-semibold">{{ generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Executive Summary Section -->
+        <div class="p-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Executive Summary</h2>
+
+            <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-6">
+                <p class="text-gray-700">
+                    <strong>Scan Name:</strong> {{ scan.name or scan.run_id }}<br>
+                    <strong>Duration:</strong> {{ scan.started_at.strftime('%Y-%m-%d %H:%M') }} - {{ scan.completed_at.strftime('%Y-%m-%d %H:%M') if scan.completed_at else 'In Progress' }}<br>
+                    <strong>Scope:</strong> {{ summary.total_targets }} target(s), {{ summary.alive_hosts }} responsive host(s)
+                </p>
+            </div>
+
+            <!-- Key Metrics Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                    <p class="text-sm text-gray-600 mb-1">Total Findings</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ summary.total_findings }}</p>
+                </div>
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                    <p class="text-sm text-red-600 mb-1">Critical</p>
+                    <p class="text-3xl font-bold text-red-600">{{ summary.severity_counts.get('CRITICAL', 0) }}</p>
+                </div>
+                <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
+                    <p class="text-sm text-orange-600 mb-1">High</p>
+                    <p class="text-3xl font-bold text-orange-600">{{ summary.severity_counts.get('HIGH', 0) }}</p>
+                </div>
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+                    <p class="text-sm text-amber-600 mb-1">Medium</p>
+                    <p class="text-3xl font-bold text-amber-600">{{ summary.severity_counts.get('MEDIUM', 0) }}</p>
+                </div>
+            </div>
+
+            <!-- Risk Assessment -->
+            <div class="mb-8">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">Overall Risk Assessment</h3>
+                <div class="bg-gray-50 rounded-lg p-6">
+                    {% set risk_level = 'LOW' %}
+                    {% set risk_color = 'green' %}
+                    {% if summary.total_risk_score > 100 %}
+                        {% set risk_level = 'CRITICAL' %}
+                        {% set risk_color = 'red' %}
+                    {% elif summary.total_risk_score > 50 %}
+                        {% set risk_level = 'HIGH' %}
+                        {% set risk_color = 'orange' %}
+                    {% elif summary.total_risk_score > 20 %}
+                        {% set risk_level = 'MEDIUM' %}
+                        {% set risk_color = 'amber' %}
+                    {% endif %}
+
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-gray-600">Risk Score</p>
+                            <p class="text-4xl font-bold text-{{ risk_color }}-600">{{ summary.total_risk_score }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-600">Risk Level</p>
+                            <span class="inline-block px-4 py-2 rounded-full text-white font-semibold bg-{{ risk_color }}-600">
+                                {{ risk_level }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="w-full bg-gray-200 rounded-full h-4">
+                        {% set risk_percent = min(100, (summary.total_risk_score / 200) * 100) %}
+                        <div class="bg-{{ risk_color }}-600 h-4 rounded-full" style="width: {{ risk_percent }}%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Vulnerabilities -->
+            <div class="mb-8 page-break">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">Top Security Issues</h3>
+                {% if findings_by_severity.get('CRITICAL') or findings_by_severity.get('HIGH') %}
+                    <div class="space-y-4">
+                        {% for severity in ['CRITICAL', 'HIGH'] %}
+                            {% if findings_by_severity.get(severity) %}
+                                {% for finding in findings_by_severity[severity][:5] %}
+                                <div class="border-l-4 border-{{ 'red' if severity == 'CRITICAL' else 'orange' }}-600 bg-{{ 'red' if severity == 'CRITICAL' else 'orange' }}-50 p-4">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1">
+                                            <span class="inline-block px-2 py-1 text-xs font-semibold rounded text-white bg-{{ 'red' if severity == 'CRITICAL' else 'orange' }}-600">
+                                                {{ severity }}
+                                            </span>
+                                            <h4 class="font-semibold text-gray-900 mt-2">{{ finding.title }}</h4>
+                                            <p class="text-sm text-gray-600 mt-1">
+                                                <strong>Target:</strong> {{ finding.target }}{% if finding.port %}:{{ finding.port }}{% endif %}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-green-600 font-semibold">✓ No critical or high severity vulnerabilities found.</p>
+                {% endif %}
+            </div>
+
+            <!-- Most Affected Hosts -->
+            {% if top_hosts %}
+            <div class="mb-8">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">Most Affected Hosts</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Host</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Findings</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity Breakdown</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for host, host_findings in top_hosts[:10] %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-mono text-sm">{{ host }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap font-bold">{{ host_findings|length }}</td>
+                                <td class="px-6 py-4 text-sm">
+                                    {% set severities = {} %}
+                                    {% for f in host_findings %}
+                                        {% if severities.update({f.severity: severities.get(f.severity, 0) + 1}) %}{% endif %}
+                                    {% endfor %}
+                                    <span class="text-red-600 font-semibold">{{ severities.get('CRITICAL', 0) }} Critical</span>,
+                                    <span class="text-orange-600 font-semibold">{{ severities.get('HIGH', 0) }} High</span>,
+                                    <span class="text-amber-600 font-semibold">{{ severities.get('MEDIUM', 0) }} Medium</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Recommendations -->
+            <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+                <h3 class="text-xl font-bold text-green-900 mb-4">🎯 Recommended Actions</h3>
+                <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                    {% if summary.severity_counts.get('CRITICAL', 0) > 0 %}
+                    <li><strong>Immediate Action:</strong> Address all {{ summary.severity_counts.get('CRITICAL') }} critical vulnerabilities within 24-48 hours</li>
+                    {% endif %}
+                    {% if summary.severity_counts.get('HIGH', 0) > 0 %}
+                    <li><strong>High Priority:</strong> Remediate {{ summary.severity_counts.get('HIGH') }} high-severity findings within 1 week</li>
+                    {% endif %}
+                    {% if summary.severity_counts.get('MEDIUM', 0) > 0 %}
+                    <li><strong>Medium Priority:</strong> Plan fixes for {{ summary.severity_counts.get('MEDIUM') }} medium-severity issues within 30 days</li>
+                    {% endif %}
+                    <li><strong>Regular Scanning:</strong> Schedule recurring security scans to monitor for new vulnerabilities</li>
+                    <li><strong>Review Technical Report:</strong> Consult the detailed technical report for specific remediation guidance</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-gray-100 px-8 py-4 text-center text-sm text-gray-600">
+            <p>This report was generated by Icebreaker Security Scanner</p>
+            <p class="mt-1">For detailed technical information, please see the Technical Report</p>
+        </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto mt-4 text-center no-print">
+        <button onclick="window.print()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+            Print / Save as PDF
+        </button>
+    </div>
+</body>
+</html>

@@ -35,6 +35,9 @@
                 <button onclick="showTab('about')" id="tab-about" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-6 text-sm font-medium">
                     About
                 </button>
+                <button onclick="showTab('themes')" id="tab-themes" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-6 text-sm font-medium">
+                    Themes
+                </button>
             </nav>
         </div>
 
@@ -269,6 +272,143 @@
                         <dd class="mt-1 text-sm text-gray-900">icebreaker.db</dd>
                     </div>
                 </dl>
+            </div>
+
+            <!-- Themes Tab -->
+            <div id="themes-content" class="tab-content hidden">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Theme Customization</h3>
+                <p class="text-sm text-gray-600 mb-6">Choose from professional themes or hacker culture-inspired designs</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Professional Themes -->
+                    <div>
+                        <h4 class="text-md font-medium text-gray-900 mb-3">Professional</h4>
+                        <div class="space-y-2">
+                            <button onclick="applyTheme('default')" class="theme-option w-full text-left px-4 py-3 border border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-gray-50">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-gray-900">Default (Indigo)</span>
+                                    <div class="flex space-x-1">
+                                        <div class="w-4 h-4 rounded-full" style="background: #6366f1;"></div>
+                                        <div class="w-4 h-4 rounded-full" style="background: #ffffff; border: 1px solid #e5e7eb;"></div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Clean and professional interface</p>
+                            </button>
+
+                            <button onclick="applyTheme('dark')" class="theme-option w-full text-left px-4 py-3 border border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-gray-50">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-gray-900">Dark Mode</span>
+                                    <div class="flex space-x-1">
+                                        <div class="w-4 h-4 rounded-full" style="background: #6366f1;"></div>
+                                        <div class="w-4 h-4 rounded-full" style="background: #1f2937;"></div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Professional dark theme</p>
+                            </button>
+
+                            <button onclick="applyTheme('nord')" class="theme-option w-full text-left px-4 py-3 border border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-gray-50">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-gray-900">Nord</span>
+                                    <div class="flex space-x-1">
+                                        <div class="w-4 h-4 rounded-full" style="background: #88c0d0;"></div>
+                                        <div class="w-4 h-4 rounded-full" style="background: #2e3440;"></div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Muted arctic-inspired palette</p>
+                            </button>
+
+                            <button onclick="applyTheme('hackernews')" class="theme-option w-full text-left px-4 py-3 border border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-gray-50">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-gray-900">Hacker News</span>
+                                    <div class="flex space-x-1">
+                                        <div class="w-4 h-4 rounded-full" style="background: #ff6600;"></div>
+                                        <div class="w-4 h-4 rounded-full" style="background: #f6f6ef; border: 1px solid #e5e7eb;"></div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Classic orange and beige</p>
+                            </button>
+
+                            <button onclick="applyTheme('dracula')" class="theme-option w-full text-left px-4 py-3 border border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-gray-50">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-gray-900">Dracula</span>
+                                    <div class="flex space-x-1">
+                                        <div class="w-4 h-4 rounded-full" style="background: #bd93f9;"></div>
+                                        <div class="w-4 h-4 rounded-full" style="background: #282a36;"></div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Purple dark theme</p>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Hacker Culture Themes -->
+                    <div>
+                        <h4 class="text-md font-medium text-gray-900 mb-3">Hacker Culture</h4>
+                        <div class="space-y-2">
+                            <button onclick="applyTheme('matrix')" class="theme-option w-full text-left px-4 py-3 border border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-gray-50">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-gray-900">Matrix</span>
+                                    <div class="flex space-x-1">
+                                        <div class="w-4 h-4 rounded-full" style="background: #00ff41;"></div>
+                                        <div class="w-4 h-4 rounded-full" style="background: #000000;"></div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Classic hacker green on black</p>
+                            </button>
+
+                            <button onclick="applyTheme('terminal')" class="theme-option w-full text-left px-4 py-3 border border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-gray-50">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-gray-900">Terminal</span>
+                                    <div class="flex space-x-1">
+                                        <div class="w-4 h-4 rounded-full" style="background: #ffa500;"></div>
+                                        <div class="w-4 h-4 rounded-full" style="background: #0c0c0c;"></div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Amber terminal with scanlines</p>
+                            </button>
+
+                            <button onclick="applyTheme('cyberpunk')" class="theme-option w-full text-left px-4 py-3 border border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-gray-50">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-gray-900">Cyberpunk</span>
+                                    <div class="flex space-x-1">
+                                        <div class="w-4 h-4 rounded-full" style="background: #ff00ff;"></div>
+                                        <div class="w-4 h-4 rounded-full" style="background: #0d0221;"></div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Neon magenta and cyan</p>
+                            </button>
+
+                            <button onclick="applyTheme('synthwave')" class="theme-option w-full text-left px-4 py-3 border border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-gray-50">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-gray-900">Synthwave</span>
+                                    <div class="flex space-x-1">
+                                        <div class="w-4 h-4 rounded-full" style="background: #f92aad;"></div>
+                                        <div class="w-4 h-4 rounded-full" style="background: #262335;"></div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Retro 80s neon aesthetic</p>
+                            </button>
+
+                            <button onclick="applyTheme('monokai')" class="theme-option w-full text-left px-4 py-3 border border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-gray-50">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-gray-900">Monokai</span>
+                                    <div class="flex space-x-1">
+                                        <div class="w-4 h-4 rounded-full" style="background: #66d9ef;"></div>
+                                        <div class="w-4 h-4 rounded-full" style="background: #272822;"></div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Code editor inspired theme</p>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p class="text-sm text-blue-800">
+                        <strong>Current theme:</strong> <span id="current-theme-name" class="font-mono">default</span>
+                    </p>
+                    <p class="text-xs text-blue-600 mt-1">Theme preference is saved in your browser</p>
+                </div>
             </div>
         </div>
     </div>
@@ -676,9 +816,34 @@
         }
     }
 
+    // Theme Functions
+    function applyTheme(themeName) {
+        // Use global switchTheme function from base.html
+        if (typeof switchTheme === 'function') {
+            switchTheme(themeName);
+            showToast(`Theme changed to ${themeName}`, 'success');
+
+            // Update current theme display
+            const themeNameElement = document.getElementById('current-theme-name');
+            if (themeNameElement) {
+                themeNameElement.textContent = themeName;
+            }
+        }
+    }
+
+    // Update current theme display on page load
+    function updateCurrentThemeDisplay() {
+        const currentTheme = localStorage.getItem('icebreaker-theme') || 'default';
+        const themeNameElement = document.getElementById('current-theme-name');
+        if (themeNameElement) {
+            themeNameElement.textContent = currentTheme;
+        }
+    }
+
     // Load initial tab on page load
     document.addEventListener('DOMContentLoaded', () => {
         showTab('port-presets');
+        updateCurrentThemeDisplay();
     });
 </script>
 {% endblock %}

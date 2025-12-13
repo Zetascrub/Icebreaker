@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Icebreaker{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/themes.css">
     <style>
         .severity-critical { color: #dc2626; }
         .severity-high { color: #ea580c; }
@@ -62,6 +63,21 @@
     {% block head %}{% endblock %}
 </head>
 <body class="bg-gray-50">
+    <!-- Theme initialization script -->
+    <script>
+        // Load saved theme from localStorage on page load
+        (function() {
+            const savedTheme = localStorage.getItem('icebreaker-theme') || 'default';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+
+        // Theme switching function (available globally)
+        function switchTheme(themeName) {
+            document.documentElement.setAttribute('data-theme', themeName);
+            localStorage.setItem('icebreaker-theme', themeName);
+        }
+    </script>
+
     <!-- Navigation -->
     <nav class="bg-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -12,7 +12,6 @@ import logging
 
 from icebreaker.db.database import SessionLocal
 from icebreaker.db.models import ScanSchedule, ScanProfile, Scan, ScanStatus
-from icebreaker.core.models import ScanSettings
 
 logger = logging.getLogger(__name__)
 
@@ -182,16 +181,16 @@ class SchedulerService:
                     merged_config.update(scan_config)
                     scan_config = merged_config
 
-            # Create scan settings
-            settings = ScanSettings(
-                ports=scan_config.get('ports', 'top-1000'),
-                timeout=scan_config.get('timeout', 5),
-                host_conc=scan_config.get('host_conc', 10),
-                svc_conc=scan_config.get('svc_conc', 100),
-                insecure=scan_config.get('insecure', False),
-                ai_provider=scan_config.get('ai_provider', None),
-                ai_model=scan_config.get('ai_model', None)
-            )
+            # Create scan settings dictionary
+            settings = {
+                'ports': scan_config.get('ports', 'top-1000'),
+                'timeout': scan_config.get('timeout', 5),
+                'host_conc': scan_config.get('host_conc', 10),
+                'svc_conc': scan_config.get('svc_conc', 100),
+                'insecure': scan_config.get('insecure', False),
+                'ai_provider': scan_config.get('ai_provider', None),
+                'ai_model': scan_config.get('ai_model', None)
+            }
 
             # Create new scan
             scan = Scan(
@@ -199,7 +198,7 @@ class SchedulerService:
                 name=f"{schedule.name} (Scheduled)",
                 status=ScanStatus.PENDING,
                 preset=scan_config.get('preset', 'quick'),
-                settings=settings.model_dump(),
+                settings=settings,
                 target_count=len(schedule.targets),
                 started_at=datetime.utcnow()
             )

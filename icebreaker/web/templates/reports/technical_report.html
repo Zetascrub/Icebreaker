@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Technical Report - {{ scan.name or scan.run_id }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
         @media print {
             .no-print { display: none; }
@@ -15,6 +16,13 @@
         .severity-medium { color: #ca8a04; }
         .severity-low { color: #65a30d; }
         .severity-info { color: #0284c7; }
+        #network-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            background: #ffffff;
+        }
     </style>
 </head>
 <body class="bg-gray-50 p-8">
@@ -92,6 +100,122 @@
                     <p class="text-3xl font-bold text-gray-900">{{ summary.total_services }}</p>
                 </div>
             </div>
+
+            <!-- Network Topology Map -->
+            {% if network_topology and network_topology.nodes %}
+            <div class="mb-8 page-break">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Network Topology</h2>
+                <p class="text-gray-600 mb-4">
+                    Visual representation of {{ network_topology.stats.total_hosts }} discovered host(s)
+                    {% if network_topology.stats.icmp_only_hosts > 0 %}
+                        ({{ network_topology.stats.icmp_only_hosts }} ICMP-only)
+                    {% endif %}
+                </p>
+
+                <!-- Legend -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                    <h3 class="text-sm font-medium text-gray-900 mb-3">Legend</h3>
+                    <div class="flex flex-wrap gap-4 text-xs">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 rounded-full mr-2" style="background-color: #dc2626;"></div>
+                            <span>Critical Risk (30+)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 rounded-full mr-2" style="background-color: #ea580c;"></div>
+                            <span>High Risk (15-29)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 rounded-full mr-2" style="background-color: #d97706;"></div>
+                            <span>Medium Risk (5-14)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 rounded-full mr-2" style="background-color: #65a30d;"></div>
+                            <span>Low Risk (1-4)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 rounded-full mr-2" style="background-color: #0284c7;"></div>
+                            <span>Services, No Findings</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 rounded-full mr-2" style="background-color: #6b7280;"></div>
+                            <span>ICMP Only</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Network Visualization -->
+                <div id="network-container"></div>
+
+                <script>
+                    // Network topology data
+                    const networkData = {{ network_topology | tojson }};
+
+                    // Create nodes and edges datasets
+                    const nodes = new vis.DataSet(
+                        networkData.nodes.map(node => {
+                            const statusText = node.open_ports === 0 ? 'ICMP Response Only' : `${node.open_ports} open services`;
+                            return {
+                                id: node.id,
+                                label: node.label,
+                                title: `${node.label}\nStatus: ${statusText}\nFindings: ${node.findings.length}\nRisk Score: ${node.risk_score}`,
+                                color: node.color,
+                                size: node.size,
+                                shape: 'dot',
+                                font: { size: 12, color: '#374151' }
+                            };
+                        })
+                    );
+
+                    const edges = new vis.DataSet(
+                        networkData.edges.map((edge, idx) => ({
+                            id: idx,
+                            from: edge.from,
+                            to: edge.to,
+                            color: { color: '#d1d5db', highlight: '#6366f1' },
+                            width: 1,
+                            dashes: edge.dashes || false,
+                            smooth: { type: 'continuous' }
+                        }))
+                    );
+
+                    // Create network options
+                    const options = {
+                        nodes: {
+                            borderWidth: 2,
+                            borderWidthSelected: 4,
+                            chosen: true,
+                            shadow: true
+                        },
+                        edges: {
+                            smooth: {
+                                enabled: true,
+                                type: 'continuous'
+                            }
+                        },
+                        physics: {
+                            enabled: true,
+                            stabilization: {
+                                iterations: 200,
+                                updateInterval: 25
+                            },
+                            barnesHut: {
+                                gravitationalConstant: -8000,
+                                springConstant: 0.001,
+                                springLength: 200
+                            }
+                        },
+                        interaction: {
+                            hover: true,
+                            tooltipDelay: 200
+                        }
+                    };
+
+                    // Initialize network
+                    const container = document.getElementById('network-container');
+                    const network = new vis.Network(container, { nodes, edges }, options);
+                </script>
+            </div>
+            {% endif %}
 
             <!-- Detailed Findings by Severity -->
             <h2 class="text-2xl font-bold text-gray-900 mb-4">Detailed Findings</h2>

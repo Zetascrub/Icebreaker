@@ -134,8 +134,8 @@ async def create_scan(
 
     db.commit()
 
-    # Queue scan execution
-    background_tasks.add_task(execute_scan, scan.id)
+    # Queue scan execution using synchronous wrapper
+    background_tasks.add_task(execute_scan_sync, scan.id)
 
     return scan
 
@@ -507,9 +507,36 @@ async def compare_scans(scan_id_1: int, scan_id_2: int, db: Session = Depends(ge
     }
 
 
+def execute_scan_sync(scan_id: int):
+    """
+    Synchronous wrapper for execute_scan to work with FastAPI BackgroundTasks.
+
+    Args:
+        scan_id: Scan ID to execute
+    """
+    import asyncio
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"Starting scan execution for scan_id={scan_id}")
+
+    try:
+        # Create a new event loop for this background task
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(execute_scan(scan_id))
+            logger.info(f"Scan {scan_id} completed successfully")
+        finally:
+            loop.close()
+    except Exception as e:
+        logger.error(f"Scan {scan_id} failed with error: {e}", exc_info=True)
+        raise
+
+
 async def execute_scan(scan_id: int):
     """
-    Execute a scan in the background.
+    Execute a scan in the background (async implementation).
 
     This function runs the actual Icebreaker scan and stores results in the database.
 
@@ -517,9 +544,13 @@ async def execute_scan(scan_id: int):
         scan_id: Scan ID to execute
     """
     import asyncio
+    import logging
     from pathlib import Path
     from icebreaker.db.database import SessionLocal
     from icebreaker.api.websocket import manager
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"Execute scan called for scan_id={scan_id}")
     from icebreaker.core.port_parser import parse_port_spec, get_top_ports
     from icebreaker.detectors.tcp_probe import TCPProbe
     from icebreaker.detectors.banner_grab import BannerGrab
@@ -550,19 +581,24 @@ async def execute_scan(scan_id: int):
         # Get scan record and targets
         scan = db.query(Scan).filter(Scan.id == scan_id).first()
         if not scan:
+            logger.error(f"Scan {scan_id} not found in database")
             return
 
         targets = db.query(Target).filter(Target.scan_id == scan_id).all()
+        logger.info(f"Found {len(targets)} targets for scan {scan_id}")
+
         if not targets:
             scan.status = ScanStatus.FAILED
             scan.error_message = "No targets specified"
             db.commit()
+            logger.error(f"Scan {scan_id} failed: No targets specified")
             return
 
         # Update status to running
         scan.status = ScanStatus.RUNNING
         scan.progress_percentage = 0
         db.commit()
+        logger.info(f"Scan {scan_id} status updated to RUNNING")
 
         # Send WebSocket update
         await manager.send_update(scan_id, {
@@ -699,13 +735,25 @@ async def execute_scan(scan_id: int):
         if ports_config:
             if ports_config.lower() == 'top100':
                 port_list = get_top_ports(100)
+                logger.info(f"Scan {scan_id}: Using top 100 ports")
             elif ports_config.lower() == 'top1000':
                 port_list = get_top_ports(1000)
+                logger.info(f"Scan {scan_id}: Using top 1000 ports")
             else:
                 try:
                     port_list = parse_port_spec(ports_config)
-                except ValueError:
+                    logger.info(f"Scan {scan_id}: Using custom port spec: {ports_config}")
+                except ValueError as ve:
+                    logger.warning(f"Scan {scan_id}: Invalid port spec '{ports_config}': {ve}. Using defaults")
                     pass  # Use defaults
+
+        # Validate port list
+        if port_list is not None and len(port_list) == 0:
+            logger.warning(f"Scan {scan_id}: Port list is empty! Falling back to default ports.")
+            port_list = None
+
+        if port_list is None:
+            logger.info(f"Scan {scan_id}: No port spec provided, detectors will use their defaults (typically [22, 80, 443])")
 
         # Set up detectors
         timeout = settings.get('timeout', 1.5)
@@ -856,7 +904,18 @@ async def execute_scan(scan_id: int):
                 "message": f"Discovering services on {len(core_targets)} hosts..."
             }
         })
+
+        logger.info(f"Scan {scan_id}: Starting service discovery on {len(core_targets)} targets")
+        logger.info(f"Scan {scan_id}: Using detectors: {[type(d).__name__ for d in detectors]}")
+        logger.info(f"Scan {scan_id}: Port list: {port_list if port_list else 'default ports'}")
+
         discovered_services = await orch.discover(core_targets)
+
+        logger.info(f"Scan {scan_id}: Discovered {len(discovered_services)} services")
+        if discovered_services:
+            logger.info(f"Scan {scan_id}: Sample services: {[(s.target, s.port, s.name) for s in discovered_services[:5]]}")
+        else:
+            logger.warning(f"Scan {scan_id}: No services discovered! Check network connectivity and firewall rules.")
 
         scan.progress_percentage = port_scan_end
         db.commit()
@@ -874,7 +933,11 @@ async def execute_scan(scan_id: int):
                 "message": f"Analyzing {len(discovered_services)} services..."
             }
         })
+
+        logger.info(f"Scan {scan_id}: Starting analysis with {len(analyzers)} analyzers")
         discovered_findings = await orch.analyse(discovered_services)
+
+        logger.info(f"Scan {scan_id}: Analysis complete. Found {len(discovered_findings)} findings")
 
         scan.progress_percentage = analysis_end
         db.commit()
@@ -934,6 +997,22 @@ async def execute_scan(scan_id: int):
         scan.findings_count = len(discovered_findings)
         db.commit()
 
+        logger.info(f"Scan {scan_id} completed: {len(discovered_services)} services, {len(discovered_findings)} findings, {scan.duration_seconds}s")
+
+        # Provide diagnostic info if no results
+        if len(discovered_services) == 0:
+            logger.warning(f"Scan {scan_id} completed with ZERO services. Diagnostic info:")
+            logger.warning(f"  - Targets scanned: {len(core_targets)}")
+            logger.warning(f"  - Ports scanned: {port_list if port_list else 'default [22, 80, 443]'}")
+            logger.warning(f"  - Skip ping sweep: {skip_ping_sweep}")
+            logger.warning(f"  - Use nmap: {use_nmap}")
+            logger.warning(f"  - Timeout: {timeout}s")
+            logger.warning(f"  - Suggestions:")
+            logger.warning(f"    1. Verify targets are reachable (try ping)")
+            logger.warning(f"    2. Check firewall rules")
+            logger.warning(f"    3. Enable 'Skip Ping Sweep' if ICMP is blocked")
+            logger.warning(f"    4. Increase timeout if network is slow")
+
         # Send completion update
         await manager.send_update(scan_id, {
             "type": "scan_complete",
@@ -949,6 +1028,9 @@ async def execute_scan(scan_id: int):
         # Mark as failed
         import traceback
         error_details = traceback.format_exc()
+        logger.error(f"Scan {scan_id} FAILED with exception: {e}")
+        logger.error(f"Traceback:\n{error_details}")
+
         scan.status = ScanStatus.FAILED
         scan.error_message = f"{str(e)}\n\n{error_details}"
         scan.completed_at = datetime.utcnow()

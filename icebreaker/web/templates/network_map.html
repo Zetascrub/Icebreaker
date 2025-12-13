@@ -33,20 +33,31 @@
 {% block content %}
 <div class="space-y-6">
     <!-- Page Header -->
-    <div class="flex justify-between items-start">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900">Network Map</h1>
-            <p class="mt-2 text-sm text-gray-600">Interactive visualization of your network topology</p>
-        </div>
-        <div class="flex space-x-2">
-            <button onclick="resetView()" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                Reset View
-            </button>
-            <button onclick="exportMap()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
-                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Export
-            </button>
+    <div class="bg-white shadow rounded-lg p-6 mb-6">
+        <div class="flex justify-between items-start">
+            <div>
+                <div class="flex items-center space-x-3 mb-2">
+                    <a href="/scans" class="text-sm text-gray-500 hover:text-gray-700">
+                        ← Back to Scans
+                    </a>
+                    <span class="text-gray-300">|</span>
+                    <a id="back-to-scan" href="#" class="text-sm text-gray-500 hover:text-gray-700">
+                        ← Back to Scan Details
+                    </a>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-900">Network Map</h1>
+                <p id="scan-name" class="mt-2 text-sm text-gray-600">Loading scan information...</p>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="resetView()" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    Reset View
+                </button>
+                <button onclick="exportMap()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                    <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Export
+                </button>
+            </div>
         </div>
     </div>
 
@@ -167,11 +178,46 @@
 <script>
     let network = null;
     let networkData = null;
+    let scanId = null;
+
+    // Get scan_id from URL parameters
+    function getScanIdFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('scan_id');
+    }
 
     async function loadNetworkMap() {
+        scanId = getScanIdFromUrl();
+
+        if (!scanId) {
+            showToast('Error: scan_id parameter is required', 'error');
+            document.getElementById('scan-name').innerHTML = '<span class="text-red-600">Error: No scan specified. Please access this page from a scan details page.</span>';
+            return;
+        }
+
         try {
-            const response = await fetch('/api/analytics/network-topology?limit=100');
+            // Load scan information
+            const scanResponse = await fetch(`/api/scans/${scanId}`);
+            if (!scanResponse.ok) {
+                throw new Error('Scan not found');
+            }
+            const scan = await scanResponse.json();
+
+            // Update page header with scan info
+            document.getElementById('scan-name').textContent = `Scan: ${scan.name || scan.run_id}`;
+            document.getElementById('back-to-scan').href = `/scans/${scanId}`;
+
+            // Load network topology for this specific scan
+            const response = await fetch(`/api/analytics/network-topology?scan_id=${scanId}&limit=100`);
+            if (!response.ok) {
+                throw new Error('Failed to load network topology');
+            }
             networkData = await response.json();
+
+            // Check for errors in response
+            if (networkData.error) {
+                throw new Error(networkData.error);
+            }
 
             // Update stats
             document.getElementById('stat-hosts').textContent = networkData.stats.total_hosts;
@@ -180,12 +226,17 @@
             document.getElementById('stat-highrisk').textContent = networkData.stats.high_risk_hosts;
 
             // Render network
-            renderNetwork(networkData);
+            if (networkData.nodes.length === 0) {
+                showToast('No hosts found in this scan', 'info');
+            } else {
+                renderNetwork(networkData);
+                showToast('Network map loaded successfully', 'success');
+            }
 
-            showToast('Network map loaded successfully', 'success');
         } catch (error) {
             console.error('Error loading network map:', error);
-            showToast('Error loading network map', 'error');
+            showToast('Error loading network map: ' + error.message, 'error');
+            document.getElementById('scan-name').innerHTML = `<span class="text-red-600">Error: ${error.message}</span>`;
         }
     }
 
@@ -369,7 +420,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `network-map-${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `network-map-scan-${scanId}-${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

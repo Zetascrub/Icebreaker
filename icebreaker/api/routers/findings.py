@@ -9,6 +9,7 @@ from sqlalchemy import func
 
 from icebreaker.db.database import get_db
 from icebreaker.db.models import Finding, Scan
+from icebreaker.core.ai_service import enhance_finding_with_ai
 
 router = APIRouter()
 
@@ -349,3 +350,69 @@ async def get_finding_status_summary(
         "false_positive_count": false_positive_count,
         "total_findings": sum(c for _, c in status_counts)
     }
+
+
+class EnhanceFindingRequest(BaseModel):
+    """Model for AI finding enhancement request."""
+    include_raw_output: bool = True
+
+
+@router.post("/findings/{finding_id}/enhance")
+async def enhance_finding(
+    finding_id: int,
+    request: EnhanceFindingRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Enhance a finding using AI to generate professional descriptions,
+    impact statements, and remediation steps.
+    """
+    # Get the finding
+    finding = db.query(Finding).filter(Finding.id == finding_id).first()
+    if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found")
+
+    # Prepare raw output
+    raw_output = None
+    if request.include_raw_output and finding.details:
+        # Extract raw output from details if available
+        raw_output = finding.details.get("raw_output") or finding.details.get("output") or str(finding.details)
+
+    try:
+        # Call AI service to enhance the finding
+        enhanced = await enhance_finding_with_ai(
+            db=db,
+            title=finding.title,
+            description=finding.description or finding.title,
+            severity=finding.severity,
+            target=finding.target,
+            port=finding.port,
+            raw_output=raw_output
+        )
+
+        # Update the finding with enhanced content
+        finding.description = enhanced.get("description") or finding.description
+
+        # Store impact and recommendation in details
+        if not finding.details:
+            finding.details = {}
+
+        finding.details["ai_enhanced"] = True
+        finding.details["impact"] = enhanced.get("impact", "")
+        finding.details["recommendation"] = enhanced.get("recommendation", "")
+
+        db.commit()
+        db.refresh(finding)
+
+        return {
+            "finding_id": finding.id,
+            "enhanced": True,
+            "description": finding.description,
+            "impact": enhanced.get("impact", ""),
+            "recommendation": enhanced.get("recommendation", "")
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI enhancement failed: {str(e)}")

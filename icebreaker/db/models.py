@@ -94,9 +94,43 @@ class Service(Base):
 
     # Relationship
     scan = relationship("Scan", back_populates="services")
+    screenshots = relationship("Screenshot", back_populates="service", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Service(id={self.id}, target={self.target}, port={self.port})>"
+
+
+class Screenshot(Base):
+    """Screenshot of web service."""
+    __tablename__ = "screenshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    service_id = Column(Integer, ForeignKey("services.id", ondelete="CASCADE"), nullable=False, index=True)
+    scan_id = Column(Integer, ForeignKey("scans.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Screenshot metadata
+    url = Column(String(1000), nullable=False)
+    screenshot_path = Column(String(500), nullable=False)  # Relative path to screenshot file
+    page_title = Column(String(500), nullable=True)
+    status_code = Column(Integer, nullable=True)
+    content_type = Column(String(100), nullable=True)
+    content_length = Column(Integer, nullable=True)
+
+    # Capture details
+    capture_status = Column(String(20), default="pending")  # pending, success, failed
+    error_message = Column(Text, nullable=True)
+    captured_at = Column(DateTime, nullable=True)
+
+    # Technology detection
+    technologies = Column(JSON, default=list)  # Detected web technologies
+    headers = Column(JSON, default=dict)  # HTTP response headers
+
+    # Relationship
+    service = relationship("Service", back_populates="screenshots")
+    scan = relationship("Scan")
+
+    def __repr__(self):
+        return f"<Screenshot(id={self.id}, url={self.url}, status={self.capture_status})>"
 
 
 class Finding(Base):

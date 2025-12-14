@@ -23,6 +23,7 @@ dependencies = [
   "dnspython>=2.4",
   "pyopenssl>=23.0",
   "apscheduler>=3.10",
+  "playwright>=1.40",
 ]
 
 [project.optional-dependencies]
@@ -41,7 +42,7 @@ line-length = 100
 select = ["E","F","I","B","W","UP"]
 
 [tool.setuptools]
-packages = ["icebreaker", "icebreaker.core", "icebreaker.engine", "icebreaker.writers", "icebreaker.analyzers", "icebreaker.detectors", "icebreaker.api", "icebreaker.api.routers", "icebreaker.db", "icebreaker.web", "icebreaker.plugins"]
+packages = ["icebreaker", "icebreaker.core", "icebreaker.engine", "icebreaker.writers", "icebreaker.analyzers", "icebreaker.detectors", "icebreaker.api", "icebreaker.api.routers", "icebreaker.db", "icebreaker.web", "icebreaker.plugins", "icebreaker.scheduler"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

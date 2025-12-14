@@ -34,6 +34,9 @@ class Scan(Base):
     duration_seconds = Column(Integer, nullable=True)
     error_message = Column(Text, nullable=True)
 
+    # Scan history tracking
+    parent_scan_id = Column(Integer, ForeignKey("scans.id"), nullable=True, index=True)
+
     # Scan configuration stored as JSON
     settings = Column(JSON, nullable=False)
 
@@ -53,6 +56,9 @@ class Scan(Base):
     targets = relationship("Target", back_populates="scan", cascade="all, delete-orphan")
     services = relationship("Service", back_populates="scan", cascade="all, delete-orphan")
     findings = relationship("Finding", back_populates="scan", cascade="all, delete-orphan")
+
+    # Scan history relationships
+    parent_scan = relationship("Scan", remote_side=[id], foreign_keys=[parent_scan_id], backref="child_scans")
 
     def __repr__(self):
         return f"<Scan(id={self.id}, run_id={self.run_id}, status={self.status})>"

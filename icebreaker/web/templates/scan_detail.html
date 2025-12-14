@@ -72,6 +72,20 @@
                 </div>
             </div>
         </div>
+
+        <!-- Rescan Button -->
+        <button onclick="rescanTargets()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            Rescan
+        </button>
+    </div>
+
+    <!-- Scan History -->
+    <div id="scan-history-section" class="bg-white shadow rounded-lg p-6 hidden">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Scan History</h3>
+        <div id="scan-history-timeline" class="space-y-2">
+            <!-- Timeline will be loaded here -->
+        </div>
     </div>
 
     <script>
@@ -1491,9 +1505,99 @@
         }
     }
 
+    // Scan History Functions
+    async function loadScanHistory() {
+        try {
+            const response = await fetch(`/api/scans/${scanId}/history`);
+            const data = await response.json();
+
+            if (data.total_scans > 1) {
+                // Show the scan history section
+                document.getElementById('scan-history-section').classList.remove('hidden');
+
+                // Render timeline
+                const timeline = document.getElementById('scan-history-timeline');
+                timeline.innerHTML = data.history.map((scan, index) => {
+                    const isFirst = index === 0;
+                    const isLast = index === data.history.length - 1;
+                    const isCurrent = scan.is_current;
+
+                    const startDate = new Date(scan.started_at);
+                    const completedDate = scan.completed_at ? new Date(scan.completed_at) : null;
+
+                    return `
+                        <div class="flex items-start space-x-3 ${isCurrent ? 'bg-indigo-50 -mx-2 px-2 py-2 rounded-lg' : ''}">
+                            <div class="flex flex-col items-center">
+                                ${!isFirst ? '<div class="w-0.5 h-4 bg-gray-300"></div>' : ''}
+                                <div class="w-3 h-3 rounded-full ${isCurrent ? 'bg-indigo-600 ring-4 ring-indigo-100' : scan.status === 'completed' ? 'bg-green-500' : scan.status === 'failed' ? 'bg-red-500' : 'bg-gray-400'}"></div>
+                                ${!isLast ? '<div class="w-0.5 flex-1 bg-gray-300 min-h-8"></div>' : ''}
+                            </div>
+                            <div class="flex-1 min-w-0 cursor-pointer ${isCurrent ? '' : 'opacity-75 hover:opacity-100'}" onclick="${isCurrent ? '' : `navigateToScan(${scan.id})`}">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-900">
+                                            ${scan.name || 'Scan ' + scan.id}
+                                            ${isCurrent ? '<span class="ml-2 text-xs bg-indigo-600 text-white px-2 py-0.5 rounded">Current</span>' : ''}
+                                            ${scan.is_root ? '<span class="ml-2 text-xs bg-gray-600 text-white px-2 py-0.5 rounded">Original</span>' : ''}
+                                        </p>
+                                        <p class="text-xs text-gray-500 mt-0.5">
+                                            ${startDate.toLocaleString()}
+                                            ${completedDate ? ` • Duration: ${Math.round(scan.duration_seconds / 60)}m` : ''}
+                                        </p>
+                                    </div>
+                                    <div class="flex items-center space-x-2 text-xs">
+                                        <span class="text-red-600 font-medium">${scan.severity_counts.critical} C</span>
+                                        <span class="text-orange-600 font-medium">${scan.severity_counts.high} H</span>
+                                        <span class="text-amber-600 font-medium">${scan.severity_counts.medium} M</span>
+                                        <span class="text-gray-500">${scan.findings_count} total</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        } catch (error) {
+            console.error('Error loading scan history:', error);
+        }
+    }
+
+    function navigateToScan(newScanId) {
+        window.location.href = `/scans/${newScanId}`;
+    }
+
+    async function rescanTargets() {
+        if (!confirm('Start a new scan with the same configuration?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/scans/${scanId}/rescan`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                showToast('Rescan started successfully', 'success');
+
+                // Navigate to the new scan
+                setTimeout(() => {
+                    window.location.href = `/scans/${result.id}`;
+                }, 1000);
+            } else {
+                const error = await response.json();
+                showToast(error.detail || 'Error starting rescan', 'error');
+            }
+        } catch (error) {
+            console.error('Rescan failed:', error);
+            showToast('Error starting rescan', 'error');
+        }
+    }
+
     // Load on page load
     document.addEventListener('DOMContentLoaded', () => {
         loadScanDetails();
+        loadScanHistory();  // Load scan history
         connectWebSocket();
     });
 

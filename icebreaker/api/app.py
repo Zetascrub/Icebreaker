@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from pathlib import Path
 
-from icebreaker.api.routers import scans, targets, settings, finding_templates, import_templates, analytics, reports, exports, schedules
+from icebreaker.api.routers import scans, targets, settings, finding_templates, import_templates, analytics, reports, exports, schedules, findings
 from icebreaker.api.websocket import manager
 from icebreaker.db.database import init_db, get_db
 from icebreaker.db.models import Scan
@@ -51,6 +51,7 @@ app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(reports.router, prefix="/api", tags=["reports"])
 app.include_router(exports.router, prefix="/api", tags=["exports"])
 app.include_router(schedules.router, prefix="/api", tags=["schedules"])
+app.include_router(findings.router, prefix="/api", tags=["findings"])
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     nmap \
     iputils-ping \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy project files
@@ -19,9 +20,12 @@ COPY icebreaker /app/icebreaker/
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -e .
 
+# Install Playwright browsers (chromium for screenshots)
+RUN playwright install --with-deps chromium
+
 # Create directories for data and set permissions
-RUN mkdir -p /app/runs /data && \
-    chmod 777 /data
+RUN mkdir -p /app/runs /app/screenshots /data && \
+    chmod 777 /data /app/screenshots
 
 # Expose port
 EXPOSE 8000

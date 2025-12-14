@@ -34,6 +34,9 @@ class Scan(Base):
     duration_seconds = Column(Integer, nullable=True)
     error_message = Column(Text, nullable=True)
 
+    # Scan history tracking
+    parent_scan_id = Column(Integer, ForeignKey("scans.id"), nullable=True, index=True)
+
     # Scan configuration stored as JSON
     settings = Column(JSON, nullable=False)
 
@@ -53,6 +56,9 @@ class Scan(Base):
     targets = relationship("Target", back_populates="scan", cascade="all, delete-orphan")
     services = relationship("Service", back_populates="scan", cascade="all, delete-orphan")
     findings = relationship("Finding", back_populates="scan", cascade="all, delete-orphan")
+
+    # Scan history relationships
+    parent_scan = relationship("Scan", remote_side=[id], foreign_keys=[parent_scan_id], backref="child_scans")
 
     def __repr__(self):
         return f"<Scan(id={self.id}, run_id={self.run_id}, status={self.status})>"
@@ -88,9 +94,43 @@ class Service(Base):
 
     # Relationship
     scan = relationship("Scan", back_populates="services")
+    screenshots = relationship("Screenshot", back_populates="service", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Service(id={self.id}, target={self.target}, port={self.port})>"
+
+
+class Screenshot(Base):
+    """Screenshot of web service."""
+    __tablename__ = "screenshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    service_id = Column(Integer, ForeignKey("services.id", ondelete="CASCADE"), nullable=False, index=True)
+    scan_id = Column(Integer, ForeignKey("scans.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Screenshot metadata
+    url = Column(String(1000), nullable=False)
+    screenshot_path = Column(String(500), nullable=False)  # Relative path to screenshot file
+    page_title = Column(String(500), nullable=True)
+    status_code = Column(Integer, nullable=True)
+    content_type = Column(String(100), nullable=True)
+    content_length = Column(Integer, nullable=True)
+
+    # Capture details
+    capture_status = Column(String(20), default="pending")  # pending, success, failed
+    error_message = Column(Text, nullable=True)
+    captured_at = Column(DateTime, nullable=True)
+
+    # Technology detection
+    technologies = Column(JSON, default=list)  # Detected web technologies
+    headers = Column(JSON, default=dict)  # HTTP response headers
+
+    # Relationship
+    service = relationship("Service", back_populates="screenshots")
+    scan = relationship("Scan")
+
+    def __repr__(self):
+        return f"<Screenshot(id={self.id}, url={self.url}, status={self.capture_status})>"
 
 
 class Finding(Base):

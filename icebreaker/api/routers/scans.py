@@ -10,6 +10,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 from pathlib import Path
+from uuid import uuid4
 import json
 import io
 
@@ -372,6 +373,132 @@ async def mark_false_positive(scan_id: int, finding_id: int, db: Session = Depen
     db.refresh(finding)
 
     return finding
+
+
+@router.post("/scans/{scan_id}/rescan")
+async def rescan(scan_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """
+    Create a new scan with the same configuration as the original scan (rescan).
+
+    Args:
+        scan_id: Original scan ID to copy configuration from
+        background_tasks: FastAPI background tasks
+        db: Database session
+
+    Returns:
+        New scan object
+    """
+    # Get the original scan
+    original_scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not original_scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    # Determine the root scan (either this scan or its parent)
+    root_scan_id = original_scan.parent_scan_id if original_scan.parent_scan_id else original_scan.id
+
+    # Get targets from the original scan
+    targets = db.query(Target).filter(Target.scan_id == scan_id).all()
+    target_addresses = [t.address for t in targets]
+
+    if not target_addresses:
+        raise HTTPException(status_code=400, detail="Original scan has no targets")
+
+    # Create new scan with same configuration
+    new_scan = Scan(
+        run_id=f"rescan-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-{str(uuid4())[:6]}",
+        name=f"{original_scan.name} (Rescan)" if original_scan.name else "Rescan",
+        status=ScanStatus.PENDING,
+        preset=original_scan.preset,
+        settings=original_scan.settings,
+        target_count=len(target_addresses),
+        started_at=datetime.utcnow(),
+        parent_scan_id=root_scan_id  # Link to the root scan
+    )
+
+    db.add(new_scan)
+    db.commit()
+    db.refresh(new_scan)
+
+    # Add targets
+    for address in target_addresses:
+        target = Target(scan_id=new_scan.id, address=address)
+        db.add(target)
+    db.commit()
+
+    # Start the scan in the background
+    background_tasks.add_task(run_scan_background, new_scan.id)
+
+    return {
+        "id": new_scan.id,
+        "run_id": new_scan.run_id,
+        "name": new_scan.name,
+        "status": new_scan.status.value,
+        "parent_scan_id": new_scan.parent_scan_id,
+        "message": "Rescan started successfully"
+    }
+
+
+@router.get("/scans/{scan_id}/history")
+async def get_scan_history(scan_id: int, db: Session = Depends(get_db)):
+    """
+    Get the scan history for a scan (all related scans in chronological order).
+
+    Args:
+        scan_id: Scan ID
+        db: Database session
+
+    Returns:
+        List of all related scans
+    """
+    # Get the current scan
+    current_scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not current_scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    # Determine the root scan ID
+    root_scan_id = current_scan.parent_scan_id if current_scan.parent_scan_id else current_scan.id
+
+    # Get all scans in this history (root + all children)
+    history_scans = db.query(Scan).filter(
+        (Scan.id == root_scan_id) | (Scan.parent_scan_id == root_scan_id)
+    ).order_by(Scan.started_at.asc()).all()
+
+    # Build response with scan summaries
+    history = []
+    for scan in history_scans:
+        # Count findings by severity
+        findings = db.query(Finding).filter(Finding.scan_id == scan.id).all()
+        severity_counts = {
+            'critical': sum(1 for f in findings if f.severity == 'CRITICAL'),
+            'high': sum(1 for f in findings if f.severity == 'HIGH'),
+            'medium': sum(1 for f in findings if f.severity == 'MEDIUM'),
+            'low': sum(1 for f in findings if f.severity == 'LOW'),
+            'info': sum(1 for f in findings if f.severity == 'INFO')
+        }
+
+        history.append({
+            'id': scan.id,
+            'run_id': scan.run_id,
+            'name': scan.name,
+            'status': scan.status.value,
+            'started_at': scan.started_at.isoformat() if scan.started_at else None,
+            'completed_at': scan.completed_at.isoformat() if scan.completed_at else None,
+            'duration_seconds': scan.duration_seconds,
+            'target_count': scan.target_count,
+            'services_found': scan.services_found,
+            'findings_count': scan.findings_count,
+            'severity_counts': severity_counts,
+            'is_current': scan.id == scan_id,
+            'is_root': scan.id == root_scan_id,
+            'parent_scan_id': scan.parent_scan_id
+        })
+
+    return {
+        'current_scan_id': scan_id,
+        'root_scan_id': root_scan_id,
+        'total_scans': len(history),
+        'history': history
+    }
 
 
 @router.get("/scans/{scan_id}/export/{format}")

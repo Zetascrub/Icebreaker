@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from pathlib import Path
 
-from icebreaker.api.routers import scans, targets, settings, finding_templates, import_templates, analytics, reports, exports, schedules
+from icebreaker.api.routers import scans, targets, settings, finding_templates, import_templates, analytics, reports, exports, schedules, findings, screenshots
 from icebreaker.api.websocket import manager
 from icebreaker.db.database import init_db, get_db
 from icebreaker.db.models import Scan
@@ -51,6 +51,8 @@ app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(reports.router, prefix="/api", tags=["reports"])
 app.include_router(exports.router, prefix="/api", tags=["exports"])
 app.include_router(schedules.router, prefix="/api", tags=["schedules"])
+app.include_router(findings.router, prefix="/api", tags=["findings"])
+app.include_router(screenshots.router, prefix="/api", tags=["screenshots"])
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -75,6 +77,12 @@ async def new_scan_page(request: Request):
 async def scan_detail_page(request: Request, scan_id: int):
     """Scan detail page."""
     return templates.TemplateResponse("scan_detail.html", {"request": request, "scan_id": scan_id})
+
+
+@app.get("/scans/{scan_id}/screenshots", response_class=HTMLResponse)
+async def screenshots_page(request: Request, scan_id: int):
+    """Screenshot gallery page."""
+    return templates.TemplateResponse("screenshots.html", {"request": request, "scan_id": scan_id})
 
 
 @app.get("/settings", response_class=HTMLResponse)

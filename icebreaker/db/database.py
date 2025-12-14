@@ -114,6 +114,49 @@ def apply_migrations():
             conn.commit()
             print("✅ Finding workflow migration completed!")
 
+        # Migration: Add scan history support
+        if "parent_scan_id" not in scans_columns:
+            print("🔄 Applying migration: Adding scan history support...")
+            cursor.execute("ALTER TABLE scans ADD COLUMN parent_scan_id INTEGER")
+            conn.commit()
+            print("✅ Scan history migration completed!")
+
+        # Migration: Add screenshots table
+        cursor.execute("""
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name='screenshots'
+        """)
+        if not cursor.fetchone():
+            print("🔄 Applying migration: Creating screenshots table...")
+            cursor.execute("""
+                CREATE TABLE screenshots (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    service_id INTEGER NOT NULL,
+                    scan_id INTEGER NOT NULL,
+                    url VARCHAR(1000) NOT NULL,
+                    screenshot_path VARCHAR(500) NOT NULL,
+                    page_title VARCHAR(500),
+                    status_code INTEGER,
+                    content_type VARCHAR(100),
+                    content_length INTEGER,
+                    capture_status VARCHAR(20) DEFAULT 'pending',
+                    error_message TEXT,
+                    captured_at DATETIME,
+                    technologies JSON,
+                    headers JSON,
+                    FOREIGN KEY(service_id) REFERENCES services (id) ON DELETE CASCADE,
+                    FOREIGN KEY(scan_id) REFERENCES scans (id) ON DELETE CASCADE
+                )
+            """)
+
+            # Create indexes
+            cursor.execute("CREATE INDEX ix_screenshots_id ON screenshots (id)")
+            cursor.execute("CREATE INDEX ix_screenshots_service_id ON screenshots (service_id)")
+            cursor.execute("CREATE INDEX ix_screenshots_scan_id ON screenshots (scan_id)")
+
+            conn.commit()
+            print("✅ Screenshots table migration completed!")
+
         conn.close()
     except Exception as e:
         print(f"⚠️  Migration warning: {e}")

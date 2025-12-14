@@ -638,6 +638,9 @@
             const dead = targets.filter(t => t.is_alive === false);
             const unknown = targets.filter(t => t.is_alive === null);
 
+            // Check if scan is complete to determine if we should collapse non-live hosts
+            const scanComplete = currentScan && (currentScan.status === 'completed' || currentScan.status === 'failed');
+
             list.innerHTML = `
                 ${alive.length > 0 ? `
                     <div class="mb-4">
@@ -651,7 +654,27 @@
                         </div>
                     </div>
                 ` : ''}
-                ${dead.length > 0 ? `
+                ${dead.length > 0 && scanComplete ? `
+                    <div class="mb-4">
+                        <details class="border border-gray-300 rounded-lg">
+                            <summary class="px-4 py-2 cursor-pointer hover:bg-gray-50 rounded-t-lg flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-500">✗ No Response (${dead.length})</span>
+                                <svg class="w-4 h-4 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </summary>
+                            <div class="p-4 border-t border-gray-200">
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    ${dead.map(t => `
+                                        <div class="bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-500">
+                                            ${t.address}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                ` : dead.length > 0 ? `
                     <div class="mb-4">
                         <h3 class="text-sm font-medium text-gray-500 mb-2">✗ No Response (${dead.length})</h3>
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">

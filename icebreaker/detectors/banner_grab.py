@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import httpx
+import ssl
 from typing import Iterable, List, Tuple
+from datetime import datetime
 
 from rich.console import Console
 
@@ -62,6 +64,47 @@ class BannerGrab:
     async def _grab_https(self, client: httpx.AsyncClient, host: str) -> Tuple[bool, dict]:
         try:
             r = await client.get(f"https://{host}", follow_redirects=False)
+
+            # Extract TLS/SSL certificate information
+            tls_info = {}
+            try:
+                # Get the SSL certificate from the connection
+                # Create a new connection to get cert details
+                import socket
+                context = ssl.create_default_context()
+                if self.insecure:
+                    context.check_hostname = False
+                    context.verify_mode = ssl.CERT_NONE
+
+                with socket.create_connection((host, 443), timeout=2) as sock:
+                    with context.wrap_socket(sock, server_hostname=host) as ssock:
+                        cert = ssock.getpeercert()
+                        tls_version = ssock.version()
+
+                        if cert:
+                            # Extract certificate details
+                            subject = dict(x[0] for x in cert.get('subject', []))
+                            issuer = dict(x[0] for x in cert.get('issuer', []))
+
+                            # Get Subject Alternative Names
+                            san_list = []
+                            for san in cert.get('subjectAltName', []):
+                                san_list.append(f"{san[0]}:{san[1]}")
+
+                            tls_info = {
+                                "tls_version": tls_version,
+                                "cert_subject": subject.get('commonName', ''),
+                                "cert_issuer": issuer.get('commonName', ''),
+                                "cert_issuer_org": issuer.get('organizationName', ''),
+                                "cert_valid_from": cert.get('notBefore', ''),
+                                "cert_valid_until": cert.get('notAfter', ''),
+                                "cert_san": san_list,
+                                "cert_serial": cert.get('serialNumber', '')
+                            }
+            except Exception as e:
+                # If cert extraction fails, continue without it
+                pass
+
             meta = {
                 "server": r.headers.get("server", ""),
                 "title": _extract_title(r.text or ""),
@@ -75,6 +118,8 @@ class BannerGrab:
                 "referrer-policy": r.headers.get("referrer-policy", ""),
                 "permissions-policy": r.headers.get("permissions-policy", ""),
                 "feature-policy": r.headers.get("feature-policy", ""),
+                # TLS/SSL information
+                **tls_info
             }
             return True, meta
         except Exception:

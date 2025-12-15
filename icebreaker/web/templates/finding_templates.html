@@ -10,12 +10,27 @@
             <h1 class="text-3xl font-bold text-gray-900">Finding Templates</h1>
             <p class="mt-2 text-sm text-gray-600">Manage standardized vulnerability findings with descriptions and remediation</p>
         </div>
-        <button onclick="showCreateModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            New Template
-        </button>
+        <div class="flex space-x-3">
+            <button onclick="exportTemplates()" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Export
+            </button>
+            <label for="import-templates" class="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                </svg>
+                Import
+            </label>
+            <input type="file" id="import-templates" accept=".json,.csv" class="hidden" onchange="importTemplates(event)">
+            <button onclick="showCreateModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                New Template
+            </button>
+        </div>
     </div>
 
     <!-- Filters -->
@@ -508,5 +523,44 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTemplates();
     loadCategories();
 });
+
+// Export templates
+function exportTemplates() {
+    window.location.href = '/api/exports/finding-templates.json';
+}
+
+// Import templates
+async function importTemplates(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/api/imports/finding-templates', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            const stats = result.statistics;
+            const message = `Import complete: ${stats.created} created, ${stats.updated} updated, ${stats.skipped} skipped`;
+            showToast(message, 'success');
+            loadTemplates();
+            loadCategories();
+        } else {
+            showToast(result.detail || 'Import failed', 'error');
+        }
+    } catch (error) {
+        console.error('Error importing templates:', error);
+        showToast('Error importing templates', 'error');
+    }
+
+    // Reset file input
+    event.target.value = '';
+}
 </script>
 {% endblock %}

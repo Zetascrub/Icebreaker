@@ -12,7 +12,9 @@ import json
 import io
 
 from icebreaker.db.database import get_db
-from icebreaker.db.models import Scan, Finding, Service, Target
+from icebreaker.db.models import Scan, Finding, Service, Target, FindingTemplate
+from fastapi import UploadFile, File
+import uuid
 
 router = APIRouter()
 
@@ -376,3 +378,175 @@ async def export_findings_markdown(scan_id: int, db: Session = Depends(get_db)):
         'Content-Disposition': f'attachment; filename="findings-scan-{scan_id}-{datetime.utcnow().strftime("%Y%m%d")}.md"'
     }
     return Response(content=md_content, media_type='text/markdown', headers=headers)
+
+
+# Finding Template export/import
+
+@router.get("/exports/finding-templates.json")
+async def export_finding_templates_json(db: Session = Depends(get_db)):
+    """Export all finding templates as JSON."""
+    templates = db.query(FindingTemplate).all()
+
+    export_data = {
+        'version': '1.0',
+        'exported_at': datetime.utcnow().isoformat(),
+        'templates': [
+            {
+                'finding_id': t.finding_id,
+                'title': t.title,
+                'description': t.description,
+                'impact': t.impact,
+                'remediation': t.remediation,
+                'severity': t.severity,
+                'category': t.category,
+                'cwe_id': t.cwe_id,
+                'owasp_2021': t.owasp_2021,
+                'pci_dss': t.pci_dss,
+                'nist_csf': t.nist_csf,
+                'cvss_score': t.cvss_score,
+                'cvss_vector': t.cvss_vector,
+                'references': t.references
+            }
+            for t in templates
+        ]
+    }
+
+    headers = {
+        'Content-Disposition': f'attachment; filename="finding-templates-{datetime.utcnow().strftime("%Y%m%d")}.json"'
+    }
+    return Response(
+        content=json.dumps(export_data, indent=2),
+        media_type='application/json',
+        headers=headers
+    )
+
+
+@router.post("/imports/finding-templates")
+async def import_finding_templates(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Import finding templates from JSON file.
+
+    - If finding_id exists: Updates the existing template
+    - If finding_id is new: Creates new template
+
+    Returns summary of imported/updated templates.
+    """
+    try:
+        contents = await file.read()
+
+        # Try JSON format first
+        if file.filename.endswith('.json'):
+            data = json.loads(contents.decode('utf-8'))
+            templates_data = data.get('templates', [])
+        else:
+            # CSV format
+            csv_text = contents.decode('utf-8')
+            csv_file = io.StringIO(csv_text)
+            reader = csv.DictReader(csv_file)
+            templates_data = []
+
+            for row in reader:
+                templates_data.append({
+                    'finding_id': row.get('Finding ID', '').strip(),
+                    'title': row.get('Title', '').strip(),
+                    'description': row.get('Description', '').strip(),
+                    'impact': row.get('Impact', '').strip() or None,
+                    'remediation': row.get('Remediation', '').strip() or None,
+                    'severity': row.get('Severity', '').strip().upper(),
+                    'category': row.get('Category', '').strip() or None,
+                    'cwe_id': row.get('CWE ID', '').strip() or None,
+                    'owasp_2021': row.get('OWASP 2021', '').strip() or None,
+                    'pci_dss': row.get('PCI DSS', '').strip() or None,
+                    'nist_csf': row.get('NIST CSF', '').strip() or None,
+                    'cvss_score': float(row.get('CVSS Score', '0').strip() or '0'),
+                    'cvss_vector': row.get('CVSS Vector', '').strip() or None,
+                    'references': [r.strip() for r in row.get('References', '').split(';') if r.strip()]
+                })
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid file format: {str(e)}")
+
+    stats = {
+        'total': 0,
+        'created': 0,
+        'updated': 0,
+        'skipped': 0,
+        'errors': []
+    }
+
+    for template_data in templates_data:
+        stats['total'] += 1
+
+        try:
+            finding_id = template_data.get('finding_id', '').strip()
+            if not finding_id:
+                # Generate finding_id if not provided
+                finding_id = f"TMPL-{uuid.uuid4().hex[:12].upper()}"
+
+            title = template_data.get('title', '').strip()
+            if not title:
+                stats['errors'].append(f"Template {finding_id} missing title")
+                stats['skipped'] += 1
+                continue
+
+            # Check if template exists
+            existing = db.query(FindingTemplate).filter(FindingTemplate.finding_id == finding_id).first()
+
+            if existing:
+                # Update existing template
+                existing.title = title
+                existing.description = template_data.get('description', '')
+                existing.impact = template_data.get('impact')
+                existing.remediation = template_data.get('remediation')
+                existing.severity = template_data.get('severity', 'INFO')
+                existing.category = template_data.get('category')
+                existing.cwe_id = template_data.get('cwe_id')
+                existing.owasp_2021 = template_data.get('owasp_2021')
+                existing.pci_dss = template_data.get('pci_dss')
+                existing.nist_csf = template_data.get('nist_csf')
+                existing.cvss_score = template_data.get('cvss_score', 0.0)
+                existing.cvss_vector = template_data.get('cvss_vector')
+                existing.references = template_data.get('references', [])
+
+                stats['updated'] += 1
+            else:
+                # Create new template
+                new_template = FindingTemplate(
+                    finding_id=finding_id,
+                    title=title,
+                    description=template_data.get('description', ''),
+                    impact=template_data.get('impact'),
+                    remediation=template_data.get('remediation'),
+                    severity=template_data.get('severity', 'INFO'),
+                    category=template_data.get('category'),
+                    cwe_id=template_data.get('cwe_id'),
+                    owasp_2021=template_data.get('owasp_2021'),
+                    pci_dss=template_data.get('pci_dss'),
+                    nist_csf=template_data.get('nist_csf'),
+                    cvss_score=template_data.get('cvss_score', 0.0),
+                    cvss_vector=template_data.get('cvss_vector'),
+                    references=template_data.get('references', [])
+                )
+                db.add(new_template)
+                stats['created'] += 1
+
+        except Exception as e:
+            stats['errors'].append(f"Template {template_data.get('finding_id', 'Unknown')}: {str(e)}")
+            stats['skipped'] += 1
+            continue
+
+    # Commit all changes
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    return {
+        'success': True,
+        'statistics': stats,
+        'message': f"Imported {stats['created']} new templates, updated {stats['updated']} existing templates"
+    }

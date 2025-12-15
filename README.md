@@ -19,11 +19,15 @@ First-strike recon scanner with enterprise-grade features, comprehensive analyze
 - 📁 **Information Disclosure** - .git, .env, backups, config files, directory listings
 - 🌐 **HTTP Security** - Missing HTTPS redirects, HSTS, server header exposure
 - 🔑 **SSH Analysis** - Banner grabbing, version detection
+- 🌍 **DNS Reconnaissance** - A, AAAA, MX, NS, TXT records, SPF/DMARC, zone transfers
+- 🔌 **API Discovery** - REST endpoints, GraphQL, Swagger/OpenAPI, admin panels
+- 🛡️ **WAF/CDN Detection** - Identifies 14+ WAFs, 12+ CDNs (Cloudflare, AWS, Akamai, etc.)
 
 ### Performance
-- ⚡ **Parallel analyzer execution** - 3-10x faster than sequential
-- 🚀 **Concurrent scanning** - Configurable concurrency limits
-- 📊 **Intelligent rate limiting** - Requests/second control
+- ⚡ **Nmap Integration** - 10-100x faster port scanning (use `--nmap` flag)
+- 🚀 **Parallel analyzer execution** - 3-10x faster than sequential
+- 📊 **Concurrent scanning** - Configurable concurrency limits
+- 🎯 **Intelligent rate limiting** - Requests/second control
 - 💾 **DNS caching** - Reduced lookup overhead
 
 ### Reporting
@@ -76,8 +80,14 @@ icebreaker -t scope.txt --insecure
 ### Advanced Usage
 
 ```bash
+# Use Nmap for 10-100x faster scanning
+icebreaker -t scope.txt --nmap
+
 # High concurrency for fast scanning
 icebreaker -t scope.txt --host-conc 256 --svc-conc 512
+
+# Scan top 1000 ports with Nmap
+icebreaker -t scope.txt --nmap --ports top1000
 
 # Custom output directory
 icebreaker -t scope.txt --out-dir /path/to/output
@@ -193,7 +203,28 @@ export SMTP_PASSWORD="your-app-password"
 
 ## 🚀 Advanced Features
 
-### 1. Vulnerability Database Integration
+### 1. Nessus Plugin Import
+
+Import Nessus NASL plugins to expand Icebreaker's vulnerability detection capabilities:
+
+```bash
+# Preview plugins before importing
+icebreaker import nessus all-2.0.tar.gz --preview --sample 50
+
+# Import all plugins
+icebreaker import nessus all-2.0.tar.gz
+```
+
+**Features:**
+- Import 100,000+ Nessus vulnerability checks
+- Automatic parsing of NASL plugin metadata
+- CVE, CVSS, and CWE extraction
+- Duplicate detection and updates
+- Progress tracking for large imports
+
+**See [NESSUS_IMPORT.md](NESSUS_IMPORT.md) for detailed instructions.**
+
+### 2. Vulnerability Database Integration
 
 Icebreaker automatically matches discovered services with known CVEs from the National Vulnerability Database (NVD):
 
@@ -207,7 +238,7 @@ Icebreaker automatically matches discovered services with known CVEs from the Na
 # Results include CVE IDs, CVSS scores, and exploit information
 ```
 
-### 2. Custom Analyzer Plugins
+### 3. Custom Analyzer Plugins
 
 Extend Icebreaker with custom security checks using the plugin system:
 
@@ -233,7 +264,7 @@ class MyCustomPlugin(AnalyzerPlugin):
 - User plugins: `./plugins/` or `/data/plugins/` (Docker)
 - Plugins are auto-loaded on startup
 
-### 3. Advanced Detection Analyzers
+### 4. Advanced Detection Analyzers
 
 **DNS Reconnaissance:**
 - A, AAAA, MX, NS, TXT, CNAME, PTR record enumeration
@@ -261,7 +292,7 @@ class MyCustomPlugin(AnalyzerPlugin):
 - Admin endpoint exposure checks
 - Debug endpoint detection
 
-### 4. Scheduled Scans
+### 5. Scheduled Scans
 
 Automate security scans with flexible scheduling options:
 
@@ -289,7 +320,7 @@ curl -X POST http://localhost:9000/api/schedules \
   }'
 ```
 
-### 5. Notifications & Alerting
+### 6. Notifications & Alerting
 
 Get notified when scans complete or critical findings are discovered:
 
@@ -377,6 +408,7 @@ Open `report.html` in your browser for:
 | `--timeout` | | `1.5` | Per-request timeout (seconds) |
 | `--insecure` | `-k` | `false` | Disable SSL verification |
 | `--ports` | `-p` | `22,80,443` | Ports to scan |
+| `--nmap` | | `false` | Use Nmap for faster scanning (10-100x speedup) |
 | `--ai` | | `none` | AI provider (ollama, anthropic/claude, openai) |
 | `--ai-model` | | provider default | AI model to use |
 | `--ai-base-url` | | `localhost:11434` | Base URL for AI provider (for remote endpoints) |
@@ -483,7 +515,12 @@ Findings are automatically prioritized by risk score in all outputs.
    - Use lower concurrency values
    - Increase timeouts to avoid false negatives
 
-4. **Validate targets** - Tool automatically validates IPs and hostnames to prevent injection
+4. **API Rate Limiting** (Web Interface):
+   - Default: 100 requests/minute per IP
+   - Configured via environment: `RATE_LIMIT="100/minute"`
+   - See [docs/RATE_LIMITING.md](docs/RATE_LIMITING.md) for details
+
+5. **Validate targets** - Tool automatically validates IPs and hostnames to prevent injection
 
 ### Exit Codes
 

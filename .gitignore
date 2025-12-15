@@ -43,3 +43,35 @@ htmlcov/
 
 # Icebreaker output
 runs/
+screenshots/
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Large archives and downloads
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~

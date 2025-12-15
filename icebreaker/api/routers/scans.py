@@ -19,6 +19,7 @@ from icebreaker.db.models import Scan, Target, Service, Finding, ScanStatus
 from icebreaker.core.models import RunContext, Target as CoreTarget
 from icebreaker.engine.orchestrator import Orchestrator
 from icebreaker.core.network_utils import expand_targets
+from icebreaker.core.plugin_executor import PluginExecutor
 
 router = APIRouter()
 
@@ -426,7 +427,7 @@ async def rescan(scan_id: int, background_tasks: BackgroundTasks, db: Session = 
     db.commit()
 
     # Start the scan in the background
-    background_tasks.add_task(run_scan_background, new_scan.id)
+    background_tasks.add_task(execute_scan_sync, new_scan.id)
 
     return {
         "id": new_scan.id,
@@ -1145,6 +1146,44 @@ async def execute_scan(scan_id: int):
 
         scan.progress_percentage = port_scan_end
         db.commit()
+
+        # Phase 2.5: Plugin Execution (runs before analysis)
+        plugin_findings = []
+        if discovered_services:
+            logger.info(f"Scan {scan_id}: Executing plugins for {len(discovered_services)} services")
+            plugin_executor = PluginExecutor(db)
+
+            for service in discovered_services:
+                try:
+                    # Execute plugins for this service
+                    service_findings = await plugin_executor.execute_plugins_for_service(
+                        scan_id=scan_id,
+                        target=service.target,
+                        port=service.port,
+                        service=service.name,
+                        banner=service.meta.get('banner', '') if service.meta else '',
+                        extra_vars={
+                            'service_meta': service.meta,
+                            'scan': scan
+                        }
+                    )
+                    plugin_findings.extend(service_findings)
+                except Exception as e:
+                    logger.error(f"Scan {scan_id}: Plugin execution error for {service.target}:{service.port}: {e}")
+                    # Continue with other services even if one fails
+
+            if plugin_findings:
+                logger.info(f"Scan {scan_id}: Plugins generated {len(plugin_findings)} findings")
+                # Add plugin findings to database
+                for finding in plugin_findings:
+                    db.add(finding)
+                db.commit()
+            else:
+                logger.info(f"Scan {scan_id}: No findings from plugins")
+
+            # Log plugin execution stats
+            stats = plugin_executor.get_stats()
+            logger.info(f"Scan {scan_id}: Plugin stats - Executed: {stats['total_executed']}, Success: {stats['successful']}, Failed: {stats['failed']}, Findings: {stats['findings_generated']}")
 
         # Phase 3: Analysis
         scan.phase = "analysis"

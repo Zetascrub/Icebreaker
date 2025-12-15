@@ -25,7 +25,11 @@ class ScreenshotService:
         Args:
             output_dir: Directory to store screenshots
         """
-        self.output_dir = Path(output_dir)
+        # Use absolute path to avoid issues in Docker
+        if not Path(output_dir).is_absolute():
+            self.output_dir = Path.cwd() / output_dir
+        else:
+            self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     async def capture_screenshot(
@@ -104,7 +108,13 @@ class ScreenshotService:
                 await browser.close()
 
                 # Update screenshot record
-                screenshot_record.screenshot_path = str(screenshot_path.relative_to(Path.cwd()))
+                # Store relative path for portability
+                try:
+                    rel_path = screenshot_path.relative_to(Path.cwd())
+                    screenshot_record.screenshot_path = str(rel_path)
+                except ValueError:
+                    # If can't get relative path, store absolute path
+                    screenshot_record.screenshot_path = str(screenshot_path)
                 screenshot_record.page_title = page_title[:500] if page_title else None
                 screenshot_record.status_code = response_data.get('status_code')
                 screenshot_record.content_type = response_data.get('content_type', '')[:100]

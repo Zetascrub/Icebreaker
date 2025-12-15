@@ -57,6 +57,82 @@ class FindingSimilarity(BaseModel):
 
 # API Endpoints
 
+@router.get("/findings")
+async def list_all_findings(
+    severity: Optional[str] = None,
+    status: Optional[str] = None,
+    scan_id: Optional[int] = None,
+    target: Optional[str] = None,
+    exclude_false_positives: bool = False,
+    only_false_positives: bool = False,
+    limit: Optional[int] = None,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """List all findings across all scans with optional filtering."""
+    query = db.query(Finding)
+
+    # Apply filters
+    if severity:
+        query = query.filter(Finding.severity == severity.upper())
+
+    if status:
+        query = query.filter(Finding.status == status)
+
+    if scan_id:
+        query = query.filter(Finding.scan_id == scan_id)
+
+    if target:
+        query = query.filter(Finding.target.like(f"%{target}%"))
+
+    if exclude_false_positives:
+        query = query.filter(Finding.false_positive != True)
+
+    if only_false_positives:
+        query = query.filter(Finding.false_positive == True)
+
+    # Order by most recent first
+    query = query.order_by(Finding.first_seen.desc())
+
+    # Apply pagination
+    if limit:
+        query = query.limit(limit)
+
+    if offset:
+        query = query.offset(offset)
+
+    findings = query.all()
+
+    # Convert to dictionaries with scan info
+    result = []
+    for finding in findings:
+        scan = db.query(Scan).filter(Scan.id == finding.scan_id).first()
+        result.append({
+            "id": finding.id,
+            "finding_id": finding.finding_id,
+            "title": finding.title,
+            "severity": finding.severity,
+            "status": finding.status,
+            "target": finding.target,
+            "port": finding.port,
+            "recommendation": finding.recommendation,
+            "false_positive": finding.false_positive,
+            "assigned_to": finding.assigned_to,
+            "notes": finding.notes,
+            "first_seen": finding.first_seen.isoformat() if finding.first_seen else None,
+            "last_seen": finding.last_seen.isoformat() if finding.last_seen else None,
+            "tags": finding.tags,
+            "confidence": finding.confidence,
+            "risk_score": finding.risk_score,
+            "details": finding.details,
+            "scan_id": finding.scan_id,
+            "scan_name": scan.name if scan else None,
+            "template_id": finding.template_id
+        })
+
+    return result
+
+
 @router.put("/findings/{finding_id}")
 async def update_finding(
     finding_id: int,

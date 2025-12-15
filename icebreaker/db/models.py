@@ -139,7 +139,7 @@ class Finding(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     scan_id = Column(Integer, ForeignKey("scans.id", ondelete="CASCADE"), nullable=False, index=True)
-    finding_id = Column(String(255), nullable=False)
+    finding_id = Column(String(255), unique=True, nullable=False, index=True)  # Globally unique ID for CSV import/export
     title = Column(String(500), nullable=False)
     severity = Column(String(20), nullable=False, index=True)
     target = Column(String(255), nullable=False, index=True)
@@ -203,6 +203,7 @@ class FindingTemplate(Base):
 
     # Relationships
     findings = relationship("Finding", back_populates="template")
+    plugins = relationship("Plugin", back_populates="template")
 
     def __repr__(self):
         return f"<FindingTemplate(id={self.id}, finding_id={self.finding_id}, title={self.title})>"
@@ -463,4 +464,57 @@ class ScanRetentionPolicy(Base):
 
     def __repr__(self):
         return f"<ScanRetentionPolicy(retention_days={self.retention_days})>"
+
+
+class Plugin(Base):
+    """
+    Vulnerability check plugin with executable code (similar to Nessus plugins).
+
+    Plugins perform active checks against services during scans:
+    - Port/service-based filtering (only run on matching services)
+    - Executable Python code stored in database or file reference
+    - Variables injected at runtime (target, port, banner, service, etc.)
+    - Returns findings with severity, description, remediation
+    """
+    __tablename__ = "plugins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    plugin_id = Column(String(100), unique=True, nullable=False, index=True)  # e.g., "PLUGIN-SSH-001"
+    name = Column(String(255), nullable=False, index=True)
+    description = Column(Text, nullable=False)
+    author = Column(String(255), nullable=True)
+    version = Column(String(50), default="1.0.0")
+
+    # Service/Port targeting
+    target_services = Column(JSON, default=list)  # List of service names: ["ssh", "http", "https"]
+    target_ports = Column(JSON, default=list)  # List of port numbers: [22, 2222] (empty = all ports for service)
+
+    # Code execution
+    code_type = Column(String(20), default="inline")  # "inline" or "file"
+    code = Column(Text, nullable=True)  # Python code if code_type == "inline"
+    code_file_path = Column(String(500), nullable=True)  # File path if code_type == "file"
+
+    # Expected finding template (optional - for standardized findings)
+    template_id = Column(Integer, ForeignKey("finding_templates.id"), nullable=True, index=True)
+
+    # Plugin metadata
+    enabled = Column(Boolean, default=True, index=True)
+    severity = Column(String(20), default="INFO")  # Default severity if plugin finds issue
+    tags = Column(JSON, default=list)  # Tags for categorization: ["cipher", "crypto", "tls"]
+
+    # Execution control
+    timeout_seconds = Column(Integer, default=30)  # Max execution time
+    required_variables = Column(JSON, default=list)  # Variables this plugin needs: ["target", "port", "banner"]
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_executed = Column(DateTime, nullable=True)
+    execution_count = Column(Integer, default=0)
+
+    # Relationships
+    template = relationship("FindingTemplate", back_populates="plugins")
+
+    def __repr__(self):
+        return f"<Plugin(id={self.id}, plugin_id={self.plugin_id}, name={self.name})>"
 

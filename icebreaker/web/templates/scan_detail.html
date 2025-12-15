@@ -84,14 +84,6 @@
         </button>
     </div>
 
-    <!-- Scan History -->
-    <div id="scan-history-section" class="bg-white shadow rounded-lg p-6 hidden">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Scan History</h3>
-        <div id="scan-history-timeline" class="space-y-2">
-            <!-- Timeline will be loaded here -->
-        </div>
-    </div>
-
     <script>
         function toggleExportMenu() {
             const menu = document.getElementById('export-menu');
@@ -127,11 +119,11 @@
         <p id="progress-message" class="text-sm text-gray-500"></p>
     </div>
 
-    <!-- Targets Section (shows alive hosts) -->
-    <div id="targets-section" class="bg-white shadow rounded-lg p-6 hidden">
-        <h2 class="text-lg font-medium text-gray-900 mb-4">Target Hosts</h2>
-        <div id="targets-list" class="space-y-2">
-            <!-- Will be populated by JavaScript -->
+    <!-- Scan History -->
+    <div id="scan-history-section" class="bg-white shadow rounded-lg p-6 hidden">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Scan History</h3>
+        <div id="scan-history-timeline" class="space-y-2">
+            <!-- Timeline will be loaded here -->
         </div>
     </div>
 
@@ -144,21 +136,41 @@
     <div class="bg-white shadow rounded-lg">
         <div class="border-b border-gray-200">
             <nav class="-mb-px flex" aria-label="Tabs">
-                <button onclick="showTab('findings')" id="tab-findings" class="tab-button border-b-2 border-indigo-500 text-indigo-600 w-1/3 py-4 px-1 text-center font-medium text-sm">
+                <button onclick="showTab('summary')" id="tab-summary" class="tab-button border-b-2 border-indigo-500 text-indigo-600 w-1/5 py-4 px-1 text-center font-medium text-sm">
+                    Summary
+                </button>
+                <button onclick="showTab('hosts')" id="tab-hosts" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 w-1/5 py-4 px-1 text-center font-medium text-sm">
+                    Hosts
+                </button>
+                <button onclick="showTab('findings')" id="tab-findings" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 w-1/5 py-4 px-1 text-center font-medium text-sm">
                     Findings
                 </button>
-                <button onclick="showTab('services')" id="tab-services" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 w-1/3 py-4 px-1 text-center font-medium text-sm">
+                <button onclick="showTab('services')" id="tab-services" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 w-1/5 py-4 px-1 text-center font-medium text-sm">
                     Services
                 </button>
-                <button onclick="showTab('config')" id="tab-config" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 w-1/3 py-4 px-1 text-center font-medium text-sm">
+                <button onclick="showTab('config')" id="tab-config" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 w-1/5 py-4 px-1 text-center font-medium text-sm">
                     Configuration
                 </button>
             </nav>
         </div>
 
         <div class="p-6">
+            <!-- Summary Tab -->
+            <div id="summary-content" class="tab-content">
+                <div id="summary-stats">
+                    <p class="text-gray-500">Loading summary...</p>
+                </div>
+            </div>
+
+            <!-- Hosts Tab -->
+            <div id="hosts-content" class="tab-content hidden">
+                <div id="hosts-list">
+                    <p class="text-gray-500">Loading hosts...</p>
+                </div>
+            </div>
+
             <!-- Findings Tab -->
-            <div id="findings-content" class="tab-content">
+            <div id="findings-content" class="tab-content hidden">
                 <!-- Filters and Controls -->
                 <div class="mb-6 bg-gray-50 p-4 rounded-lg space-y-4">
                     <div class="flex flex-wrap items-center gap-4">
@@ -168,6 +180,12 @@
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                    oninput="filterFindings()">
                         </div>
+
+                        <!-- Host Filter -->
+                        <select id="host-filter" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterFindings()">
+                            <option value="">All Hosts</option>
+                            <!-- Will be populated dynamically -->
+                        </select>
 
                         <!-- Severity Filter -->
                         <select id="severity-filter" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="filterFindings()">
@@ -201,15 +219,21 @@
 
                         <!-- Export All -->
                         <button onclick="exportAllFindings()" class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            ⬇ Export All
+                            ⬇ Export CSV
                         </button>
+
+                        <!-- Import CSV -->
+                        <label for="import-findings-csv" class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer">
+                            ⬆ Import CSV
+                        </label>
+                        <input type="file" id="import-findings-csv" accept=".csv" class="hidden" onchange="importFindingsCSV(event)">
                     </div>
 
                     <!-- Stats Bar -->
                     <div class="flex items-center justify-between text-sm text-gray-600">
                         <span id="findings-stats">Loading...</span>
                         <button onclick="findDuplicates()" class="px-3 py-1.5 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">
-                            🔍 Find Duplicates
+                            Find Duplicates
                         </button>
                     </div>
                 </div>
@@ -224,7 +248,7 @@
                     </div>
                     <div class="flex items-center space-x-2">
                         <button onclick="showBulkEditModal()" class="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700">
-                            ✏ Bulk Edit
+                            Bulk Edit
                         </button>
                         <button onclick="bulkMarkFalsePositive()" class="px-3 py-1.5 text-sm bg-gray-600 text-white rounded hover:bg-gray-700">
                             Mark False Positive
@@ -367,6 +391,14 @@
     let allFindings = [];  // Store all findings for filtering/sorting
     let findings = [];  // Store current findings after filtering
     let selectedFindingIds = new Set();  // Track selected findings for bulk operations
+    let allTargets = [];  // Store all targets
+    let tabsLoaded = {
+        summary: false,
+        hosts: false,
+        findings: false,
+        services: false,
+        config: false
+    };
 
     async function loadScanDetails() {
         try {
@@ -420,17 +452,8 @@
                 document.getElementById('scan-progress').classList.add('hidden');
             }
 
-            // Load and show targets
-            await loadTargets();
-
-            // Load findings
-            await loadFindings();
-
-            // Load services
-            await loadServices();
-
-            // Load config
-            loadConfiguration();
+            // Load the summary tab by default
+            loadSummaryTab();
 
         } catch (error) {
             console.error('Error loading scan:', error);
@@ -438,11 +461,298 @@
         }
     }
 
+    async function loadSummaryTab() {
+        if (tabsLoaded.summary) return;
+        tabsLoaded.summary = true;
+
+        try {
+            const [findingsResponse, targetsResponse] = await Promise.all([
+                fetch(`/api/scans/${scanId}/findings`),
+                fetch(`/api/scans/${scanId}/targets`)
+            ]);
+
+            const findings = await findingsResponse.json();
+            const targets = await targetsResponse.json();
+
+            // Calculate severity breakdown
+            const severityCounts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+            findings.forEach(f => {
+                if (severityCounts[f.severity] !== undefined) {
+                    severityCounts[f.severity]++;
+                }
+            });
+
+            // Get alive hosts
+            const aliveHosts = targets.filter(t => t.is_alive === true);
+
+            // Calculate top vulnerable hosts
+            const hostFindingsMap = {};
+            findings.forEach(f => {
+                if (!hostFindingsMap[f.target]) {
+                    hostFindingsMap[f.target] = [];
+                }
+                hostFindingsMap[f.target].push(f);
+            });
+
+            const topVulnerableHosts = Object.entries(hostFindingsMap)
+                .map(([host, hostFindings]) => ({
+                    host,
+                    count: hostFindings.length,
+                    critical: hostFindings.filter(f => f.severity === 'CRITICAL').length,
+                    high: hostFindings.filter(f => f.severity === 'HIGH').length
+                }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 5);
+
+            document.getElementById('summary-stats').innerHTML = `
+                <div class="space-y-6">
+                    <!-- Scan Overview -->
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Scan Overview</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <div class="text-sm text-gray-500">Scan Status</div>
+                                <div class="mt-1">${getStatusBadge(currentScan.status)}</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <div class="text-sm text-gray-500">Total Findings</div>
+                                <div class="mt-1 text-2xl font-semibold text-gray-900">${findings.length}</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <div class="text-sm text-gray-500">Alive Hosts</div>
+                                <div class="mt-1 text-2xl font-semibold text-green-600">${aliveHosts.length}</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <div class="text-sm text-gray-500">Services Discovered</div>
+                                <div class="mt-1 text-2xl font-semibold text-gray-900">${currentScan.services_found}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Severity Breakdown -->
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Severity Breakdown</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center">
+                                <div class="flex-1 flex items-center">
+                                    <div class="w-32 text-sm font-medium text-gray-700">Critical</div>
+                                    <div class="flex-1 bg-gray-200 rounded-full h-6">
+                                        <div class="bg-red-600 h-6 rounded-full flex items-center justify-end px-2" style="width: ${findings.length > 0 ? (severityCounts.CRITICAL / findings.length * 100) : 0}%">
+                                            <span class="text-xs font-medium text-white">${severityCounts.CRITICAL}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="flex-1 flex items-center">
+                                    <div class="w-32 text-sm font-medium text-gray-700">High</div>
+                                    <div class="flex-1 bg-gray-200 rounded-full h-6">
+                                        <div class="bg-orange-600 h-6 rounded-full flex items-center justify-end px-2" style="width: ${findings.length > 0 ? (severityCounts.HIGH / findings.length * 100) : 0}%">
+                                            <span class="text-xs font-medium text-white">${severityCounts.HIGH}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="flex-1 flex items-center">
+                                    <div class="w-32 text-sm font-medium text-gray-700">Medium</div>
+                                    <div class="flex-1 bg-gray-200 rounded-full h-6">
+                                        <div class="bg-amber-600 h-6 rounded-full flex items-center justify-end px-2" style="width: ${findings.length > 0 ? (severityCounts.MEDIUM / findings.length * 100) : 0}%">
+                                            <span class="text-xs font-medium text-white">${severityCounts.MEDIUM}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="flex-1 flex items-center">
+                                    <div class="w-32 text-sm font-medium text-gray-700">Low</div>
+                                    <div class="flex-1 bg-gray-200 rounded-full h-6">
+                                        <div class="bg-lime-600 h-6 rounded-full flex items-center justify-end px-2" style="width: ${findings.length > 0 ? (severityCounts.LOW / findings.length * 100) : 0}%">
+                                            <span class="text-xs font-medium text-white">${severityCounts.LOW}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="flex-1 flex items-center">
+                                    <div class="w-32 text-sm font-medium text-gray-700">Info</div>
+                                    <div class="flex-1 bg-gray-200 rounded-full h-6">
+                                        <div class="bg-sky-600 h-6 rounded-full flex items-center justify-end px-2" style="width: ${findings.length > 0 ? (severityCounts.INFO / findings.length * 100) : 0}%">
+                                            <span class="text-xs font-medium text-white">${severityCounts.INFO}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top Vulnerable Hosts -->
+                    ${topVulnerableHosts.length > 0 ? `
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Top Vulnerable Hosts</h3>
+                            <div class="space-y-2">
+                                ${topVulnerableHosts.map(host => `
+                                    <div class="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
+                                        <div class="flex-1">
+                                            <div class="text-sm font-medium text-gray-900">${host.host}</div>
+                                            <div class="text-xs text-gray-500 mt-0.5">
+                                                ${host.critical > 0 ? `<span class="text-red-600 font-medium">${host.critical} Critical</span>` : ''}
+                                                ${host.high > 0 ? `<span class="text-orange-600 font-medium ml-2">${host.high} High</span>` : ''}
+                                                <span class="ml-2">${host.count} total findings</span>
+                                            </div>
+                                        </div>
+                                        <button onclick="filterByHost('${host.host}')" class="ml-4 px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                                            View Findings
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+        } catch (error) {
+            console.error('Error loading summary:', error);
+            document.getElementById('summary-stats').innerHTML = '<p class="text-red-500">Error loading summary</p>';
+        }
+    }
+
+    async function loadHostsTab() {
+        if (tabsLoaded.hosts) return;
+        tabsLoaded.hosts = true;
+
+        try {
+            const response = await fetch(`/api/scans/${scanId}/targets`);
+            const targets = await response.json();
+            allTargets = targets;
+
+            const list = document.getElementById('hosts-list');
+
+            if (targets.length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-500 py-8">No hosts found</p>';
+                return;
+            }
+
+            // Get findings for all hosts to show counts
+            const findingsResponse = await fetch(`/api/scans/${scanId}/findings`);
+            const findings = await findingsResponse.json();
+
+            // Create a map of host -> findings count
+            const hostFindingsMap = {};
+            findings.forEach(f => {
+                if (!hostFindingsMap[f.target]) {
+                    hostFindingsMap[f.target] = {
+                        total: 0,
+                        critical: 0,
+                        high: 0,
+                        medium: 0,
+                        low: 0,
+                        info: 0
+                    };
+                }
+                hostFindingsMap[f.target].total++;
+                hostFindingsMap[f.target][f.severity.toLowerCase()]++;
+            });
+
+            // Group by alive status
+            const alive = targets.filter(t => t.is_alive === true);
+            const dead = targets.filter(t => t.is_alive === false);
+            const unknown = targets.filter(t => t.is_alive === null);
+
+            list.innerHTML = `
+                ${alive.length > 0 ? `
+                    <div class="mb-6">
+                        <h3 class="text-sm font-medium text-green-600 mb-3">Alive Hosts (${alive.length})</h3>
+                        <div class="space-y-2">
+                            ${alive.map(t => {
+                                const hostStats = hostFindingsMap[t.address] || { total: 0, critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+                                return `
+                                    <div class="bg-white border border-gray-200 rounded-lg p-4 hover:border-indigo-500 hover:shadow-md transition cursor-pointer" onclick="filterByHost('${t.address}')">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex-1">
+                                                <div class="flex items-center">
+                                                    <span class="w-3 h-3 bg-green-500 rounded-full mr-3"></span>
+                                                    <span class="text-sm font-medium text-gray-900">${t.address}</span>
+                                                </div>
+                                                ${hostStats.total > 0 ? `
+                                                    <div class="mt-2 ml-6 text-xs text-gray-600">
+                                                        ${hostStats.critical > 0 ? `<span class="text-red-600 font-medium">${hostStats.critical} Critical</span>` : ''}
+                                                        ${hostStats.high > 0 ? `<span class="text-orange-600 font-medium ml-2">${hostStats.high} High</span>` : ''}
+                                                        ${hostStats.medium > 0 ? `<span class="text-amber-600 font-medium ml-2">${hostStats.medium} Medium</span>` : ''}
+                                                        ${hostStats.low > 0 ? `<span class="text-lime-600 font-medium ml-2">${hostStats.low} Low</span>` : ''}
+                                                        ${hostStats.info > 0 ? `<span class="text-sky-600 font-medium ml-2">${hostStats.info} Info</span>` : ''}
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                            <div class="ml-4">
+                                                ${hostStats.total > 0 ? `
+                                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                                        ${hostStats.total} findings
+                                                    </span>
+                                                ` : `
+                                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                                        No findings
+                                                    </span>
+                                                `}
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                ${dead.length > 0 ? `
+                    <div class="mb-6">
+                        <h3 class="text-sm font-medium text-gray-500 mb-3">No Response (${dead.length})</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            ${dead.map(t => `
+                                <div class="bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-500">
+                                    ${t.address}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                ${unknown.length > 0 ? `
+                    <div class="mb-6">
+                        <h3 class="text-sm font-medium text-blue-600 mb-3">Pending (${unknown.length})</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            ${unknown.map(t => `
+                                <div class="bg-blue-50 border border-blue-200 rounded px-3 py-2 text-sm text-blue-800">
+                                    ${t.address}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+
+        } catch (error) {
+            console.error('Error loading hosts:', error);
+            document.getElementById('hosts-list').innerHTML = '<p class="text-red-500">Error loading hosts</p>';
+        }
+    }
+
     async function loadFindings() {
+        if (tabsLoaded.findings) {
+            // Already loaded, just refresh
+            await refreshFindings();
+            return;
+        }
+        tabsLoaded.findings = true;
+
         try {
             const response = await fetch(`/api/scans/${scanId}/findings`);
             allFindings = await response.json();
             findings = allFindings;
+
+            // Populate host filter dropdown
+            const uniqueHosts = [...new Set(allFindings.map(f => f.target))].sort();
+            const hostFilter = document.getElementById('host-filter');
+            hostFilter.innerHTML = '<option value="">All Hosts</option>' +
+                uniqueHosts.map(host => `<option value="${host}">${host}</option>`).join('');
 
             filterFindings();  // Initial render with no filters
 
@@ -452,8 +762,34 @@
         }
     }
 
+    async function refreshFindings() {
+        try {
+            const response = await fetch(`/api/scans/${scanId}/findings`);
+            allFindings = await response.json();
+            filterFindings();
+        } catch (error) {
+            console.error('Error refreshing findings:', error);
+        }
+    }
+
+    function filterByHost(hostAddress) {
+        // Switch to findings tab
+        showTab('findings');
+
+        // Wait for tab to load
+        setTimeout(() => {
+            // Set the host filter
+            const hostFilter = document.getElementById('host-filter');
+            if (hostFilter) {
+                hostFilter.value = hostAddress;
+                filterFindings();
+            }
+        }, 100);
+    }
+
     function filterFindings() {
         const searchTerm = document.getElementById('finding-search')?.value.toLowerCase() || '';
+        const hostFilter = document.getElementById('host-filter')?.value || '';
         const severityFilter = document.getElementById('severity-filter')?.value || '';
         const statusFilter = document.getElementById('status-filter')?.value || '';
         const sortBy = document.getElementById('sort-by')?.value || 'risk_desc';
@@ -466,13 +802,16 @@
                 finding.target.toLowerCase().includes(searchTerm) ||
                 finding.finding_id.toLowerCase().includes(searchTerm);
 
+            // Host filter
+            const matchesHost = !hostFilter || finding.target === hostFilter;
+
             // Severity filter
             const matchesSeverity = !severityFilter || finding.severity === severityFilter;
 
             // Status filter
             const matchesStatus = !statusFilter || finding.status === statusFilter;
 
-            return matchesSearch && matchesSeverity && matchesStatus;
+            return matchesSearch && matchesHost && matchesSeverity && matchesStatus;
         });
 
         // Sort findings
@@ -551,19 +890,19 @@
                             </div>
                             <div class="mt-2 flex items-center space-x-4">
                                 <span class="text-xs text-indigo-600 font-medium">
-                                    📋 Click for details
+                                    Click for details
                                 </span>
-                                ${finding.template_id ? '<span class="text-xs text-green-600">✓ Has remediation</span>' : ''}
-                                ${Object.keys(finding.details || {}).length > 0 ? '<span class="text-xs text-blue-600">📊 Has scan data</span>' : ''}
+                                ${finding.template_id ? '<span class="text-xs text-green-600">Has remediation</span>' : ''}
+                                ${Object.keys(finding.details || {}).length > 0 ? '<span class="text-xs text-blue-600">Has scan data</span>' : ''}
                             </div>
                             </div>
                         </div>
                         <div class="ml-4 flex flex-col space-y-2">
                             <button onclick="event.stopPropagation(); toggleFalsePositive(${finding.id})" class="text-sm ${finding.false_positive ? 'text-green-600 hover:text-green-700' : 'text-gray-500 hover:text-gray-700'}">
-                                ${finding.false_positive ? '✓ False Positive' : 'Mark False Positive'}
+                                ${finding.false_positive ? 'False Positive' : 'Mark False Positive'}
                             </button>
                             <button onclick="event.stopPropagation(); exportFinding(${finding.id})" class="text-sm text-gray-500 hover:text-gray-700">
-                                ⬇ Export
+                                Export
                             </button>
                         </div>
                     </div>
@@ -572,6 +911,9 @@
     }
 
     async function loadServices() {
+        if (tabsLoaded.services) return;
+        tabsLoaded.services = true;
+
         try {
             const response = await fetch(`/api/scans/${scanId}/services`);
             const services = await response.json();
@@ -613,111 +955,14 @@
 
         } catch (error) {
             console.error('Error loading services:', error);
-            showToast('Error loading services', 'error');
-        }
-    }
-
-    async function loadTargets() {
-        try {
-            const response = await fetch(`/api/scans/${scanId}/targets`);
-            const targets = await response.json();
-
-            const list = document.getElementById('targets-list');
-            const targetsSection = document.getElementById('targets-section');
-
-            if (targets.length === 0) {
-                targetsSection.classList.add('hidden');
-                return;
-            }
-
-            // Show targets section
-            targetsSection.classList.remove('hidden');
-
-            // Group by alive status
-            const alive = targets.filter(t => t.is_alive === true);
-            const dead = targets.filter(t => t.is_alive === false);
-            const unknown = targets.filter(t => t.is_alive === null);
-
-            list.innerHTML = `
-                ${alive.length > 0 ? `
-                    <div class="mb-4">
-                        <h3 class="text-sm font-medium text-green-600 mb-2">✓ Alive Hosts (${alive.length})</h3>
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            ${alive.map(t => `
-                                <div class="bg-green-50 border border-green-200 rounded px-3 py-2 text-sm text-green-800">
-                                    ${t.address}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-                ${dead.length > 0 ? `
-                    <div class="mb-4">
-                        <h3 class="text-sm font-medium text-gray-500 mb-2">✗ No Response (${dead.length})</h3>
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            ${dead.map(t => `
-                                <div class="bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-500">
-                                    ${t.address}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-                ${unknown.length > 0 ? `
-                    <div class="mb-4">
-                        <h3 class="text-sm font-medium text-blue-600 mb-2">? Pending (${unknown.length})</h3>
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            ${unknown.map(t => `
-                                <div class="bg-blue-50 border border-blue-200 rounded px-3 py-2 text-sm text-blue-800">
-                                    ${t.address}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-            `;
-
-        } catch (error) {
-            console.error('Error loading targets:', error);
-        }
-    }
-
-    function updateProgressUI(scan) {
-        const progressBar = document.getElementById('progress-bar');
-        const progressPercentage = document.getElementById('progress-percentage');
-        const progressPhase = document.getElementById('progress-phase');
-        const progressMessage = document.getElementById('progress-message');
-
-        if (!progressBar) return;
-
-        const percentage = scan.progress_percentage || 0;
-        progressBar.style.width = `${percentage}%`;
-        progressPercentage.textContent = `${percentage}%`;
-
-        // Update phase display
-        const phaseNames = {
-            'initializing': '⚙️ Initializing',
-            'ping_sweep': '📡 Ping Sweep',
-            'port_scan': '🔍 Port Scanning',
-            'analysis': '🔬 Analyzing Services',
-            'writing': '📝 Generating Reports',
-            'completed': '✓ Completed'
-        };
-        progressPhase.textContent = phaseNames[scan.phase] || scan.phase;
-
-        // Update message based on phase
-        if (scan.phase === 'ping_sweep' && scan.alive_hosts !== undefined) {
-            progressMessage.textContent = `Found ${scan.alive_hosts} alive hosts out of ${scan.target_count} targets`;
-        } else if (scan.phase === 'port_scan') {
-            progressMessage.textContent = `Scanning ports on ${scan.alive_hosts || scan.target_count} hosts...`;
-        } else if (scan.phase === 'analysis') {
-            progressMessage.textContent = `Analyzing discovered services for vulnerabilities...`;
-        } else {
-            progressMessage.textContent = '';
+            document.getElementById('services-list').innerHTML = '<p class="text-red-500">Error loading services</p>';
         }
     }
 
     function loadConfiguration() {
+        if (tabsLoaded.config) return;
+        tabsLoaded.config = true;
+
         if (!currentScan) return;
 
         const config = currentScan.settings;
@@ -765,14 +1010,31 @@
             content.classList.add('hidden');
         });
         document.getElementById(`${tabName}-content`).classList.remove('hidden');
+
+        // Lazy load content
+        switch(tabName) {
+            case 'summary':
+                loadSummaryTab();
+                break;
+            case 'hosts':
+                loadHostsTab();
+                break;
+            case 'findings':
+                loadFindings();
+                break;
+            case 'services':
+                loadServices();
+                break;
+            case 'config':
+                loadConfiguration();
+                break;
+        }
     }
 
     async function viewFindingDetails(findingId) {
         try {
             // Get finding details
-            const findingResponse = await fetch(`/api/scans/${scanId}/findings`);
-            const findings = await findingResponse.json();
-            const finding = findings.find(f => f.id === findingId);
+            const finding = allFindings.find(f => f.id === findingId);
 
             if (!finding) return;
 
@@ -868,23 +1130,23 @@
                             ${template || (finding.details && finding.details.ai_enhanced) ? `
                                 <div class="space-y-4">
                                     <div>
-                                        <h5 class="text-sm font-medium text-gray-900 mb-2">📝 Description</h5>
+                                        <h5 class="text-sm font-medium text-gray-900 mb-2">Description</h5>
                                         <p class="text-sm text-gray-700 whitespace-pre-line">${finding.description || template.description}</p>
                                     </div>
                                     ${finding.details && finding.details.impact ? `
                                         <div>
-                                            <h5 class="text-sm font-medium text-gray-900 mb-2">⚠️ Impact</h5>
+                                            <h5 class="text-sm font-medium text-gray-900 mb-2">Impact</h5>
                                             <p class="text-sm text-gray-700 whitespace-pre-line">${finding.details.impact}</p>
                                         </div>
                                     ` : template ? `
                                         <div>
-                                            <h5 class="text-sm font-medium text-gray-900 mb-2">⚠️ Impact</h5>
+                                            <h5 class="text-sm font-medium text-gray-900 mb-2">Impact</h5>
                                             <p class="text-sm text-gray-700 whitespace-pre-line">${template.impact}</p>
                                         </div>
                                     ` : ''}
                                     ${finding.details && finding.details.recommendation ? `
                                         <div>
-                                            <h5 class="text-sm font-medium text-gray-900 mb-2">✅ Recommendation</h5>
+                                            <h5 class="text-sm font-medium text-gray-900 mb-2">Recommendation</h5>
                                             <p class="text-sm text-gray-700 whitespace-pre-line">${finding.details.recommendation}</p>
                                         </div>
                                     ` : ''}
@@ -906,7 +1168,7 @@
                         <div id="finding-tab-scan-output" class="finding-tab-content hidden">
                             <div class="space-y-4">
                                 <div>
-                                    <h5 class="text-sm font-medium text-gray-900 mb-2">📊 Raw Scan Data</h5>
+                                    <h5 class="text-sm font-medium text-gray-900 mb-2">Raw Scan Data</h5>
                                     ${Object.keys(finding.details || {}).length > 0 ? `
                                         <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
                                             <pre class="text-xs text-green-400 font-mono">${JSON.stringify(finding.details, null, 2)}</pre>
@@ -930,12 +1192,12 @@
                             <!-- Remediation Tab -->
                             <div id="finding-tab-remediation" class="finding-tab-content hidden">
                                 <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                                    <h5 class="text-sm font-medium text-green-900 mb-3">✅ Remediation Steps</h5>
+                                    <h5 class="text-sm font-medium text-green-900 mb-3">Remediation Steps</h5>
                                     <div class="text-sm text-green-800 whitespace-pre-line">${template.remediation}</div>
                                 </div>
                                 ${template.references && template.references.length > 0 ? `
                                     <div class="mt-4">
-                                        <h6 class="text-xs font-medium text-gray-500 uppercase mb-2">📚 References</h6>
+                                        <h6 class="text-xs font-medium text-gray-500 uppercase mb-2">References</h6>
                                         <ul class="list-disc list-inside text-sm space-y-1">
                                             ${template.references.map(ref => `<li><a href="${ref}" target="_blank" class="text-blue-600 hover:underline">${ref}</a></li>`).join('')}
                                         </ul>
@@ -1019,10 +1281,7 @@
 
     async function exportFinding(findingId) {
         try {
-            // Get finding details
-            const findingResponse = await fetch(`/api/scans/${scanId}/findings`);
-            const findings = await findingResponse.json();
-            const finding = findings.find(f => f.id === findingId);
+            const finding = allFindings.find(f => f.id === findingId);
 
             if (!finding) return;
 
@@ -1087,6 +1346,17 @@
     }
 
     async function exportAllFindings() {
+        try {
+            // Export using the CSV endpoint
+            window.location.href = `/api/exports/scans/${scanId}/findings.csv`;
+            showToast('Exporting findings...', 'success', 2000);
+        } catch (error) {
+            console.error('Export error:', error);
+            showToast('Export failed', 'error');
+        }
+    }
+
+    async function exportAllFindingsJSON() {
         try {
             // Use the currently filtered findings
             const findingsToExport = findings.length > 0 ? findings : allFindings;
@@ -1191,11 +1461,46 @@
 
             if (response.ok) {
                 showToast('Finding updated', 'success');
-                loadFindings();
+                await refreshFindings();
             }
         } catch (error) {
             console.error('Error updating finding:', error);
             showToast('Error updating finding', 'error');
+        }
+    }
+
+    function updateProgressUI(scan) {
+        const progressBar = document.getElementById('progress-bar');
+        const progressPercentage = document.getElementById('progress-percentage');
+        const progressPhase = document.getElementById('progress-phase');
+        const progressMessage = document.getElementById('progress-message');
+
+        if (!progressBar) return;
+
+        const percentage = scan.progress_percentage || 0;
+        progressBar.style.width = `${percentage}%`;
+        progressPercentage.textContent = `${percentage}%`;
+
+        // Update phase display
+        const phaseNames = {
+            'initializing': 'Initializing',
+            'ping_sweep': 'Ping Sweep',
+            'port_scan': 'Port Scanning',
+            'analysis': 'Analyzing Services',
+            'writing': 'Generating Reports',
+            'completed': 'Completed'
+        };
+        progressPhase.textContent = phaseNames[scan.phase] || scan.phase;
+
+        // Update message based on phase
+        if (scan.phase === 'ping_sweep' && scan.alive_hosts !== undefined) {
+            progressMessage.textContent = `Found ${scan.alive_hosts} alive hosts out of ${scan.target_count} targets`;
+        } else if (scan.phase === 'port_scan') {
+            progressMessage.textContent = `Scanning ports on ${scan.alive_hosts || scan.target_count} hosts...`;
+        } else if (scan.phase === 'analysis') {
+            progressMessage.textContent = `Analyzing discovered services for vulnerabilities...`;
+        } else {
+            progressMessage.textContent = '';
         }
     }
 
@@ -1240,9 +1545,10 @@
                     currentScan.alive_hosts = data.data.alive_hosts || currentScan.alive_hosts;
                     updateProgressUI(currentScan);
 
-                    // Reload targets if ping sweep completed
-                    if (data.data.phase === 'ping_sweep' && data.data.alive_hosts !== undefined) {
-                        loadTargets();
+                    // Reload hosts if ping sweep completed and hosts tab is loaded
+                    if (data.data.phase === 'ping_sweep' && data.data.alive_hosts !== undefined && tabsLoaded.hosts) {
+                        tabsLoaded.hosts = false;
+                        loadHostsTab();
                     }
                 }
             } else if (data.type === 'scan_complete' || data.type === 'scan_failed') {
@@ -1280,7 +1586,7 @@
 
             if (response.ok) {
                 showToast('Finding status updated', 'success');
-                await loadFindings();  // Reload findings list
+                await refreshFindings();
             } else {
                 showToast('Error updating status', 'error');
             }
@@ -1303,7 +1609,7 @@
 
             if (response.ok) {
                 showToast('Finding assignment updated', 'success');
-                await loadFindings();
+                await refreshFindings();
             } else {
                 showToast('Error updating assignment', 'error');
             }
@@ -1352,7 +1658,7 @@
                 // Reload the finding details to show enhanced content
                 setTimeout(() => {
                     closeFindingModal();
-                    loadFindings();
+                    refreshFindings();
                 }, 1500);
 
             } else {
@@ -1456,7 +1762,7 @@
                 showToast(`Updated ${result.updated_count} findings successfully`, 'success');
                 closeBulkEditModal();
                 clearSelection();
-                await loadFindings();  // Reload to show updated data
+                await refreshFindings();
             } else {
                 showToast('Error updating findings', 'error');
             }
@@ -1491,7 +1797,7 @@
                 const result = await response.json();
                 showToast(`Marked ${result.updated_count} findings as false positive`, 'success');
                 clearSelection();
-                await loadFindings();
+                await refreshFindings();
             } else {
                 showToast('Error marking findings', 'error');
             }
@@ -1578,7 +1884,7 @@
                 const result = await response.json();
                 showToast(`Merged ${result.deleted_finding_ids.length} findings successfully`, 'success');
                 closeDuplicatesModal();
-                await loadFindings();
+                await refreshFindings();
             } else {
                 showToast('Error merging findings', 'error');
             }
@@ -1677,10 +1983,58 @@
         }
     }
 
+    // Import findings from CSV
+    async function importFindingsCSV(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showToast('Importing findings...', 'info', 2000);
+
+            const response = await fetch(`/api/imports/scans/${scanId}/findings.csv`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                const stats = result.statistics;
+                let message = `Import complete: ${stats.created} created, ${stats.updated} updated`;
+                if (stats.skipped > 0) {
+                    message += `, ${stats.skipped} skipped`;
+                }
+
+                showToast(message, 'success', 5000);
+
+                // Show errors if any
+                if (stats.errors && stats.errors.length > 0) {
+                    console.error('Import errors:', stats.errors);
+                    showToast(`${stats.errors.length} errors occurred. Check console for details.`, 'warning', 5000);
+                }
+
+                // Reload findings
+                await loadFindings();
+
+                // Clear file input
+                event.target.value = '';
+            } else {
+                showToast('Import failed', 'error');
+            }
+        } catch (error) {
+            console.error('Import error:', error);
+            showToast(`Import failed: ${error.message}`, 'error');
+            event.target.value = '';
+        }
+    }
+
     // Load on page load
     document.addEventListener('DOMContentLoaded', () => {
         loadScanDetails();
-        loadScanHistory();  // Load scan history
+        loadScanHistory();
         connectWebSocket();
     });
 

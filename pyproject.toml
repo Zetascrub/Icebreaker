@@ -24,6 +24,8 @@ dependencies = [
   "pyopenssl>=23.0",
   "apscheduler>=3.10",
   "playwright>=1.40",
+  "slowapi>=0.1.9",
+  "itsdangerous>=2.1",
 ]
 
 [project.optional-dependencies]

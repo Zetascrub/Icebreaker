@@ -1,0 +1,540 @@
+{% extends "base.html" %}
+
+{% block title %}Plugin Management - Icebreaker{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Plugin Management</h1>
+            <p class="mt-2 text-sm text-gray-600">Manage vulnerability detection plugins with executable code</p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="exportPlugins()" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Export Plugins
+            </button>
+            <label for="import-plugins" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center cursor-pointer">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L9 8m4-4v12"></path>
+                </svg>
+                Import Plugins
+            </label>
+            <input type="file" id="import-plugins" accept=".json,.csv" class="hidden" onchange="importPlugins(event)">
+            <button onclick="showCreateModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                New Plugin
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white shadow rounded-lg p-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Service Filter</label>
+                <input type="text" id="filter-service" onkeyup="filterPlugins()" placeholder="e.g., ssh, http" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Severity</label>
+                <select id="filter-severity" onchange="filterPlugins()" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <option value="">All Severities</option>
+                    <option value="CRITICAL">Critical</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                    <option value="INFO">Info</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select id="filter-enabled" onchange="filterPlugins()" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <option value="">All</option>
+                    <option value="true" selected>Enabled Only</option>
+                    <option value="false">Disabled Only</option>
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button onclick="loadPlugins()" class="w-full bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plugins List -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Plugins</h2>
+        </div>
+        <div id="plugins-list" class="divide-y divide-gray-200">
+            <div class="p-8 text-center text-gray-500">
+                <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading plugins...
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div id="plugin-modal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-10 mx-auto p-8 w-full max-w-6xl">
+        <div class="bg-white rounded-lg shadow-xl">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 id="modal-title" class="text-lg font-medium text-gray-900">New Plugin</h3>
+                <button onclick="hideModal()" class="text-gray-400 hover:text-gray-500">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <form id="plugin-form" class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                <input type="hidden" id="plugin-id">
+
+                <div class="grid grid-cols-2 gap-6">
+                    <!-- Plugin ID -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Plugin ID *</label>
+                        <input type="text" id="plugin_id" required placeholder="PLUGIN-SSH-002"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <p class="mt-1 text-xs text-gray-500">Unique identifier (e.g., PLUGIN-SSH-002)</p>
+                    </div>
+
+                    <!-- Name -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Name *</label>
+                        <input type="text" id="name" required placeholder="SSH Weak Cipher Detection"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+
+                    <!-- Author -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Author</label>
+                        <input type="text" id="author" placeholder="Security Team"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+
+                    <!-- Version -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Version</label>
+                        <input type="text" id="version" placeholder="1.0.0"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+
+                    <!-- Severity -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Severity *</label>
+                        <select id="severity" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            <option value="INFO">Info</option>
+                            <option value="LOW">Low</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="HIGH" selected>High</option>
+                            <option value="CRITICAL">Critical</option>
+                        </select>
+                    </div>
+
+                    <!-- Timeout -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Timeout (seconds)</label>
+                        <input type="number" id="timeout_seconds" value="30" min="1" max="300"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+
+                    <!-- Target Services -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Target Services</label>
+                        <input type="text" id="target_services" placeholder="ssh, http, https (comma-separated)"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <p class="mt-1 text-xs text-gray-500">Leave empty to run on all services</p>
+                    </div>
+
+                    <!-- Target Ports -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Target Ports</label>
+                        <input type="text" id="target_ports" placeholder="22, 2222, 22222 (comma-separated)"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <p class="mt-1 text-xs text-gray-500">Leave empty to run on all ports</p>
+                    </div>
+
+                    <!-- Tags -->
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">Tags</label>
+                        <input type="text" id="tags" placeholder="ssh, ciphers, encryption (comma-separated)"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Description *</label>
+                    <textarea id="description" required rows="3" placeholder="Detects weak ciphers in SSH configuration..."
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+                </div>
+
+                <!-- Code Type -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Code Type</label>
+                    <select id="code_type" onchange="toggleCodeInput()" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <option value="inline">Inline Code</option>
+                        <option value="file">File Reference</option>
+                    </select>
+                </div>
+
+                <!-- Inline Code -->
+                <div id="inline-code-section">
+                    <label class="block text-sm font-medium text-gray-700">Plugin Code *</label>
+                    <textarea id="code" rows="15" placeholder="def check():\n    # Available variables: target, port, service, banner, scan_id\n    findings = []\n    \n    # Your detection logic here\n    \n    return {'findings': findings}"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono text-xs"></textarea>
+                    <p class="mt-1 text-xs text-gray-500">Must define a check() function that returns {'findings': [...]}</p>
+                </div>
+
+                <!-- File Path -->
+                <div id="file-path-section" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700">Code File Path *</label>
+                    <input type="text" id="code_file_path" placeholder="/data/plugins/my_plugin.py"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <p class="mt-1 text-xs text-gray-500">Path to Python file containing check() function</p>
+                </div>
+
+                <!-- Required Variables -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Required Variables</label>
+                    <input type="text" id="required_variables" placeholder="target, port, service (comma-separated)"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <p class="mt-1 text-xs text-gray-500">Variables that will be injected: target, port, service, banner, scan_id</p>
+                </div>
+
+                <!-- Enabled -->
+                <div class="flex items-center">
+                    <input type="checkbox" id="enabled" checked class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="enabled" class="ml-2 block text-sm text-gray-900">Enabled</label>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex justify-end gap-3 pt-4 border-t">
+                    <button type="button" onclick="hideModal()" class="bg-white px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="bg-indigo-600 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white hover:bg-indigo-700">
+                        Save Plugin
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let allPlugins = [];
+let currentEditId = null;
+
+async function loadPlugins() {
+    try {
+        const response = await fetch('/api/plugins');
+        allPlugins = await response.json();
+        filterPlugins();
+    } catch (error) {
+        console.error('Error loading plugins:', error);
+        showToast('Failed to load plugins', 'error');
+    }
+}
+
+function filterPlugins() {
+    const serviceFilter = document.getElementById('filter-service').value.toLowerCase();
+    const severityFilter = document.getElementById('filter-severity').value;
+    const enabledFilter = document.getElementById('filter-enabled').value;
+
+    let filtered = allPlugins.filter(plugin => {
+        if (serviceFilter && !plugin.target_services.some(s => s.toLowerCase().includes(serviceFilter))) {
+            return false;
+        }
+        if (severityFilter && plugin.severity !== severityFilter) {
+            return false;
+        }
+        if (enabledFilter === 'true' && !plugin.enabled) {
+            return false;
+        }
+        if (enabledFilter === 'false' && plugin.enabled) {
+            return false;
+        }
+        return true;
+    });
+
+    renderPlugins(filtered);
+}
+
+function renderPlugins(plugins) {
+    const container = document.getElementById('plugins-list');
+
+    if (plugins.length === 0) {
+        container.innerHTML = '<div class="p-8 text-center text-gray-500">No plugins found</div>';
+        return;
+    }
+
+    container.innerHTML = plugins.map(plugin => `
+        <div class="p-6 hover:bg-gray-50">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3">
+                        <h3 class="text-lg font-medium text-gray-900">${plugin.name}</h3>
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${getSeverityClass(plugin.severity)}">
+                            ${plugin.severity}
+                        </span>
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${plugin.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                            ${plugin.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                    </div>
+                    <p class="mt-1 text-sm text-gray-600">${plugin.description || 'No description'}</p>
+                    <div class="mt-2 flex flex-wrap gap-4 text-sm text-gray-500">
+                        <span><strong>ID:</strong> ${plugin.plugin_id}</span>
+                        <span><strong>Version:</strong> ${plugin.version || 'N/A'}</span>
+                        <span><strong>Author:</strong> ${plugin.author || 'Unknown'}</span>
+                        ${plugin.target_services.length > 0 ? `<span><strong>Services:</strong> ${plugin.target_services.join(', ')}</span>` : ''}
+                        ${plugin.target_ports.length > 0 ? `<span><strong>Ports:</strong> ${plugin.target_ports.join(', ')}</span>` : ''}
+                        <span><strong>Timeout:</strong> ${plugin.timeout_seconds}s</span>
+                    </div>
+                    ${plugin.tags && plugin.tags.length > 0 ? `
+                        <div class="mt-2 flex flex-wrap gap-1">
+                            ${plugin.tags.map(tag => `<span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">${tag}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    <div class="mt-2 text-xs text-gray-500">
+                        <strong>Code Type:</strong> ${plugin.code_type} |
+                        <strong>Executed:</strong> ${plugin.execution_count || 0} times |
+                        <strong>Success:</strong> ${plugin.success_count || 0} |
+                        <strong>Findings:</strong> ${plugin.findings_count || 0}
+                    </div>
+                </div>
+                <div class="ml-4 flex gap-2">
+                    <button onclick="viewPlugin(${plugin.id})" class="text-gray-600 hover:text-gray-900" title="View Details">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                    </button>
+                    <button onclick="editPlugin(${plugin.id})" class="text-indigo-600 hover:text-indigo-900" title="Edit">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                    </button>
+                    <button onclick="togglePlugin(${plugin.id}, ${plugin.enabled})" class="text-${plugin.enabled ? 'yellow' : 'green'}-600 hover:text-${plugin.enabled ? 'yellow' : 'green'}-900" title="${plugin.enabled ? 'Disable' : 'Enable'}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 ${plugin.enabled ? '8v4' : '16v-4'}m0 ${plugin.enabled ? '0v4' : '0v4'}"></path>
+                        </svg>
+                    </button>
+                    <button onclick="deletePlugin(${plugin.id})" class="text-red-600 hover:text-red-900" title="Delete">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function getSeverityClass(severity) {
+    const classes = {
+        'CRITICAL': 'bg-red-100 text-red-800',
+        'HIGH': 'bg-orange-100 text-orange-800',
+        'MEDIUM': 'bg-yellow-100 text-yellow-800',
+        'LOW': 'bg-green-100 text-green-800',
+        'INFO': 'bg-blue-100 text-blue-800'
+    };
+    return classes[severity] || 'bg-gray-100 text-gray-800';
+}
+
+function showCreateModal() {
+    currentEditId = null;
+    document.getElementById('modal-title').textContent = 'New Plugin';
+    document.getElementById('plugin-form').reset();
+    document.getElementById('plugin-id').value = '';
+    document.getElementById('enabled').checked = true;
+    document.getElementById('plugin-modal').classList.remove('hidden');
+}
+
+function hideModal() {
+    document.getElementById('plugin-modal').classList.add('hidden');
+}
+
+async function editPlugin(id) {
+    try {
+        const response = await fetch(`/api/plugins/${id}`);
+        const plugin = await response.json();
+
+        currentEditId = id;
+        document.getElementById('modal-title').textContent = 'Edit Plugin';
+        document.getElementById('plugin-id').value = plugin.id;
+        document.getElementById('plugin_id').value = plugin.plugin_id;
+        document.getElementById('name').value = plugin.name;
+        document.getElementById('author').value = plugin.author || '';
+        document.getElementById('version').value = plugin.version || '';
+        document.getElementById('severity').value = plugin.severity;
+        document.getElementById('timeout_seconds').value = plugin.timeout_seconds;
+        document.getElementById('target_services').value = (plugin.target_services || []).join(', ');
+        document.getElementById('target_ports').value = (plugin.target_ports || []).join(', ');
+        document.getElementById('tags').value = (plugin.tags || []).join(', ');
+        document.getElementById('description').value = plugin.description || '';
+        document.getElementById('code_type').value = plugin.code_type;
+        document.getElementById('code').value = plugin.code || '';
+        document.getElementById('code_file_path').value = plugin.code_file_path || '';
+        document.getElementById('required_variables').value = (plugin.required_variables || []).join(', ');
+        document.getElementById('enabled').checked = plugin.enabled;
+
+        toggleCodeInput();
+        document.getElementById('plugin-modal').classList.remove('hidden');
+    } catch (error) {
+        console.error('Error loading plugin:', error);
+        showToast('Failed to load plugin', 'error');
+    }
+}
+
+async function viewPlugin(id) {
+    // For now, just edit - could add a read-only view modal
+    editPlugin(id);
+}
+
+async function togglePlugin(id, currentStatus) {
+    try {
+        await fetch(`/api/plugins/${id}/toggle`, { method: 'POST' });
+        showToast(`Plugin ${currentStatus ? 'disabled' : 'enabled'}`, 'success');
+        loadPlugins();
+    } catch (error) {
+        console.error('Error toggling plugin:', error);
+        showToast('Failed to toggle plugin', 'error');
+    }
+}
+
+async function deletePlugin(id) {
+    if (!confirm('Are you sure you want to delete this plugin?')) return;
+
+    try {
+        await fetch(`/api/plugins/${id}`, { method: 'DELETE' });
+        showToast('Plugin deleted', 'success');
+        loadPlugins();
+    } catch (error) {
+        console.error('Error deleting plugin:', error);
+        showToast('Failed to delete plugin', 'error');
+    }
+}
+
+function toggleCodeInput() {
+    const codeType = document.getElementById('code_type').value;
+    const inlineSection = document.getElementById('inline-code-section');
+    const fileSection = document.getElementById('file-path-section');
+
+    if (codeType === 'inline') {
+        inlineSection.classList.remove('hidden');
+        fileSection.classList.add('hidden');
+        document.getElementById('code').required = true;
+        document.getElementById('code_file_path').required = false;
+    } else {
+        inlineSection.classList.add('hidden');
+        fileSection.classList.remove('hidden');
+        document.getElementById('code').required = false;
+        document.getElementById('code_file_path').required = true;
+    }
+}
+
+document.getElementById('plugin-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const data = {
+        plugin_id: document.getElementById('plugin_id').value,
+        name: document.getElementById('name').value,
+        author: document.getElementById('author').value || null,
+        version: document.getElementById('version').value || null,
+        severity: document.getElementById('severity').value,
+        timeout_seconds: parseInt(document.getElementById('timeout_seconds').value),
+        target_services: document.getElementById('target_services').value.split(',').map(s => s.trim()).filter(s => s),
+        target_ports: document.getElementById('target_ports').value.split(',').map(p => parseInt(p.trim())).filter(p => !isNaN(p)),
+        tags: document.getElementById('tags').value.split(',').map(t => t.trim()).filter(t => t),
+        description: document.getElementById('description').value,
+        code_type: document.getElementById('code_type').value,
+        code: document.getElementById('code_type').value === 'inline' ? document.getElementById('code').value : null,
+        code_file_path: document.getElementById('code_type').value === 'file' ? document.getElementById('code_file_path').value : null,
+        required_variables: document.getElementById('required_variables').value.split(',').map(v => v.trim()).filter(v => v),
+        enabled: document.getElementById('enabled').checked
+    };
+
+    try {
+        const url = currentEditId ? `/api/plugins/${currentEditId}` : '/api/plugins';
+        const method = currentEditId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            showToast(`Plugin ${currentEditId ? 'updated' : 'created'}`, 'success');
+            hideModal();
+            loadPlugins();
+        } else {
+            const error = await response.json();
+            showToast(error.detail || 'Failed to save plugin', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving plugin:', error);
+        showToast('Failed to save plugin', 'error');
+    }
+});
+
+async function exportPlugins() {
+    try {
+        window.location.href = '/api/exports/plugins.json';
+        showToast('Plugins exported', 'success');
+    } catch (error) {
+        console.error('Error exporting plugins:', error);
+        showToast('Failed to export plugins', 'error');
+    }
+}
+
+async function importPlugins(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/api/imports/plugins', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showToast(`Import complete: ${result.statistics.created} created, ${result.statistics.updated} updated`, 'success');
+            loadPlugins();
+        } else {
+            showToast(result.message || 'Import failed', 'error');
+        }
+    } catch (error) {
+        console.error('Error importing plugins:', error);
+        showToast('Failed to import plugins', 'error');
+    }
+
+    event.target.value = '';
+}
+
+function showToast(message, type = 'info') {
+    // Reuse toast from other pages if available
+    console.log(`${type.toUpperCase()}: ${message}`);
+    alert(message);
+}
+
+// Load plugins on page load
+loadPlugins();
+</script>
+{% endblock %}

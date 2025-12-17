@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+
+{% block title %}Projects - Icebreaker{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-8">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Projects</h1>
+                <p class="mt-2 text-sm text-gray-600">Organize scans by client or engagement</p>
+            </div>
+            <button onclick="showCreateModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                New Project
+            </button>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="mt-6 border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8">
+                <button onclick="filterProjects('active')" class="filter-tab border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Active
+                </button>
+                <button onclick="filterProjects('archived')" class="filter-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Archived
+                </button>
+                <button onclick="filterProjects('all')" class="filter-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    All
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Projects Grid -->
+    <div id="projects-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Projects will be loaded here -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">No projects</h3>
+        <p class="mt-1 text-sm text-gray-500">Get started by creating a new project.</p>
+        <div class="mt-6">
+            <button onclick="showCreateModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+                New Project
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Project Modal -->
+<div id="projectModal" class="hidden fixed z-10 inset-0 overflow-y-auto">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mt-3 w-full sm:mt-0 sm:text-left">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                            Create New Project
+                        </h3>
+                        <div class="mt-4">
+                            <form id="projectForm">
+                                <input type="hidden" id="projectId" value="">
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700">Project Name *</label>
+                                        <input type="text" id="projectName" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+
+                                    <div class="col-span-2 sm:col-span-1">
+                                        <label class="block text-sm font-medium text-gray-700">Client Name</label>
+                                        <input type="text" id="clientName" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+
+                                    <div class="col-span-2 sm:col-span-1">
+                                        <label class="block text-sm font-medium text-gray-700">Engagement Type</label>
+                                        <select id="engagementType" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                            <option value="">Select type...</option>
+                                            <option value="External Pentest">External Pentest</option>
+                                            <option value="Internal Pentest">Internal Pentest</option>
+                                            <option value="Web Application Test">Web Application Test</option>
+                                            <option value="Network Assessment">Network Assessment</option>
+                                            <option value="Red Team">Red Team</option>
+                                            <option value="Bug Bounty">Bug Bounty</option>
+                                            <option value="Compliance Audit">Compliance Audit</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-span-2 sm:col-span-1">
+                                        <label class="block text-sm font-medium text-gray-700">Start Date</label>
+                                        <input type="date" id="startDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+
+                                    <div class="col-span-2 sm:col-span-1">
+                                        <label class="block text-sm font-medium text-gray-700">End Date</label>
+                                        <input type="date" id="endDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+
+                                    <div class="col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700">Description</label>
+                                        <textarea id="description" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                                    </div>
+
+                                    <div class="col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700">Scope (one per line)</label>
+                                        <textarea id="scope" rows="3" placeholder="192.168.1.0/24&#10;example.com&#10;*.example.com" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                                        <p class="mt-1 text-xs text-gray-500">Enter IP ranges, domains, or URLs - one per line</p>
+                                    </div>
+
+                                    <div class="col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700">Notes</label>
+                                        <textarea id="notes" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="saveProject()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                    Save
+                </button>
+                <button type="button" onclick="hideCreateModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentFilter = 'active';
+let allProjects = [];
+
+// Load projects on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadProjects();
+});
+
+async function loadProjects() {
+    try {
+        const response = await fetch('/api/projects');
+        allProjects = await response.json();
+        filterProjects(currentFilter);
+    } catch (error) {
+        console.error('Error loading projects:', error);
+        showToast('Failed to load projects', 'error');
+    }
+}
+
+function filterProjects(status) {
+    currentFilter = status;
+
+    // Update tab styling
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.classList.remove('border-indigo-500', 'text-indigo-600');
+        tab.classList.add('border-transparent', 'text-gray-500');
+    });
+
+    // Find and update the clicked tab
+    const clickedTab = event ? event.target : document.querySelector(`button[onclick*="filterProjects('${status}')"]`);
+    if (clickedTab) {
+        clickedTab.classList.remove('border-transparent', 'text-gray-500');
+        clickedTab.classList.add('border-indigo-500', 'text-indigo-600');
+    }
+
+    // Filter projects
+    let filtered = allProjects;
+    if (status !== 'all') {
+        filtered = allProjects.filter(p => p.status === status);
+    }
+
+    displayProjects(filtered);
+}
+
+function displayProjects(projects) {
+    const container = document.getElementById('projects-container');
+    const emptyState = document.getElementById('empty-state');
+
+    if (projects.length === 0) {
+        container.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+    }
+
+    emptyState.classList.add('hidden');
+
+    container.innerHTML = projects.map(project => `
+        <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer" onclick="window.location.href='/projects/${project.id}'">
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-gray-900">${escapeHtml(project.name)}</h3>
+                    ${project.client_name ? `<p class="text-sm text-gray-600">${escapeHtml(project.client_name)}</p>` : ''}
+                </div>
+                <span class="px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(project.status)}">
+                    ${project.status}
+                </span>
+            </div>
+
+            ${project.engagement_type ? `
+                <div class="mb-3">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-sm font-medium bg-blue-100 text-blue-800">
+                        ${escapeHtml(project.engagement_type)}
+                    </span>
+                </div>
+            ` : ''}
+
+            ${project.description ? `
+                <p class="text-sm text-gray-600 mb-4 line-clamp-2">${escapeHtml(project.description)}</p>
+            ` : ''}
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <p class="text-xs text-gray-500">Scans</p>
+                    <p class="text-lg font-semibold text-gray-900">${project.total_scans}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Findings</p>
+                    <p class="text-lg font-semibold text-gray-900">${project.total_findings}</p>
+                </div>
+            </div>
+
+            ${(project.critical_findings > 0 || project.high_findings > 0) ? `
+                <div class="flex space-x-2 mb-4">
+                    ${project.critical_findings > 0 ? `
+                        <span class="px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800">
+                            ${project.critical_findings} Critical
+                        </span>
+                    ` : ''}
+                    ${project.high_findings > 0 ? `
+                        <span class="px-2 py-1 text-xs font-medium rounded bg-orange-100 text-orange-800">
+                            ${project.high_findings} High
+                        </span>
+                    ` : ''}
+                </div>
+            ` : ''}
+
+            <div class="flex justify-between items-center pt-4 border-t border-gray-200">
+                <p class="text-xs text-gray-500">
+                    Created ${formatDate(project.created_at)}
+                </p>
+                <div class="flex space-x-2">
+                    <button onclick="editProject(event, ${project.id})" class="text-indigo-600 hover:text-indigo-900 text-sm font-medium">
+                        Edit
+                    </button>
+                    ${project.status === 'active' ? `
+                        <button onclick="archiveProject(event, ${project.id})" class="text-gray-600 hover:text-gray-900 text-sm font-medium">
+                            Archive
+                        </button>
+                    ` : `
+                        <button onclick="activateProject(event, ${project.id})" class="text-green-600 hover:text-green-900 text-sm font-medium">
+                            Activate
+                        </button>
+                    `}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function showCreateModal() {
+    document.getElementById('projectModal').classList.remove('hidden');
+    document.getElementById('modal-title').textContent = 'Create New Project';
+    document.getElementById('projectForm').reset();
+    document.getElementById('projectId').value = '';
+}
+
+function hideCreateModal() {
+    document.getElementById('projectModal').classList.add('hidden');
+}
+
+async function saveProject() {
+    const projectId = document.getElementById('projectId').value;
+    const name = document.getElementById('projectName').value.trim();
+
+    if (!name) {
+        showToast('Project name is required', 'error');
+        return;
+    }
+
+    const scopeText = document.getElementById('scope').value.trim();
+    const scope = scopeText ? scopeText.split('\n').filter(line => line.trim()) : [];
+
+    const data = {
+        name: name,
+        client_name: document.getElementById('clientName').value.trim() || null,
+        engagement_type: document.getElementById('engagementType').value || null,
+        start_date: document.getElementById('startDate').value || null,
+        end_date: document.getElementById('endDate').value || null,
+        description: document.getElementById('description').value.trim() || null,
+        scope: scope.length > 0 ? scope : null,
+        notes: document.getElementById('notes').value.trim() || null
+    };
+
+    try {
+        const url = projectId ? `/api/projects/${projectId}` : '/api/projects';
+        const method = projectId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showToast(result.message, 'success');
+            hideCreateModal();
+            loadProjects();
+        } else {
+            showToast(result.detail || 'Failed to save project', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving project:', error);
+        showToast('Failed to save project', 'error');
+    }
+}
+
+async function editProject(event, projectId) {
+    event.stopPropagation();
+
+    try {
+        const response = await fetch(`/api/projects/${projectId}`);
+        const project = await response.json();
+
+        document.getElementById('modal-title').textContent = 'Edit Project';
+        document.getElementById('projectId').value = project.id;
+        document.getElementById('projectName').value = project.name;
+        document.getElementById('clientName').value = project.client_name || '';
+        document.getElementById('engagementType').value = project.engagement_type || '';
+        document.getElementById('startDate').value = project.start_date ? project.start_date.split('T')[0] : '';
+        document.getElementById('endDate').value = project.end_date ? project.end_date.split('T')[0] : '';
+        document.getElementById('description').value = project.description || '';
+        document.getElementById('scope').value = project.scope ? project.scope.join('\n') : '';
+        document.getElementById('notes').value = project.notes || '';
+
+        document.getElementById('projectModal').classList.remove('hidden');
+    } catch (error) {
+        console.error('Error loading project:', error);
+        showToast('Failed to load project', 'error');
+    }
+}
+
+async function archiveProject(event, projectId) {
+    event.stopPropagation();
+
+    if (!confirm('Are you sure you want to archive this project?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/projects/${projectId}/archive`, {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showToast(result.message, 'success');
+            loadProjects();
+        } else {
+            showToast(result.detail || 'Failed to archive project', 'error');
+        }
+    } catch (error) {
+        console.error('Error archiving project:', error);
+        showToast('Failed to archive project', 'error');
+    }
+}
+
+async function activateProject(event, projectId) {
+    event.stopPropagation();
+
+    try {
+        const response = await fetch(`/api/projects/${projectId}/activate`, {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showToast(result.message, 'success');
+            loadProjects();
+        } else {
+            showToast(result.detail || 'Failed to activate project', 'error');
+        }
+    } catch (error) {
+        console.error('Error activating project:', error);
+        showToast('Failed to activate project', 'error');
+    }
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'active': 'bg-green-100 text-green-800',
+        'archived': 'bg-gray-100 text-gray-800',
+        'completed': 'bg-blue-100 text-blue-800'
+    };
+    return badges[status] || 'bg-gray-100 text-gray-800';
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'today';
+    if (diffDays === 1) return 'yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+    return date.toLocaleDateString();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showToast(message, type = 'info') {
+    // Reuse toast functionality from base.html
+    const toast = document.createElement('div');
+    toast.className = `toast-enter fixed top-4 right-4 px-6 py-3 rounded-md shadow-lg ${
+        type === 'success' ? 'bg-green-500' :
+        type === 'error' ? 'bg-red-500' :
+        'bg-blue-500'
+    } text-white z-50`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('toast-exit');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+</script>
+{% endblock %}

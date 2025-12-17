@@ -6,7 +6,7 @@ Run with: python -m icebreaker.db.seed_example_plugins
 from pathlib import Path
 from sqlalchemy.orm import Session
 from icebreaker.db.database import SessionLocal
-from icebreaker.db.models import Plugin, FindingTemplate
+from icebreaker.db.models import Plugin
 
 
 def seed_ssh_cipher_plugin(db: Session):

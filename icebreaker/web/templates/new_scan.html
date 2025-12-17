@@ -146,11 +146,23 @@
             <div class="bg-white shadow rounded-lg p-6">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
 
-                <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700">Scan Name (optional)</label>
-                    <input type="text" id="name" name="name" placeholder="Production Scan"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
-                    <p class="mt-1 text-sm text-gray-500">Give this scan a memorable name</p>
+                <div class="space-y-4">
+                    <div>
+                        <label for="project_id" class="block text-sm font-medium text-gray-700">Project (optional)</label>
+                        <select id="project_id" name="project_id"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                            <option value="">No Project</option>
+                            <!-- Projects will be loaded here -->
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">Assign this scan to a project for better organization</p>
+                    </div>
+
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-700">Scan Name (optional)</label>
+                        <input type="text" id="name" name="name" placeholder="Production Scan"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                        <p class="mt-1 text-sm text-gray-500">Give this scan a memorable name</p>
+                    </div>
                 </div>
             </div>
 
@@ -282,6 +294,50 @@
 </div>
 
 <script>
+    // Load projects on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const response = await fetch('/api/projects?status=active');
+            const projects = await response.json();
+
+            const projectSelect = document.getElementById('project_id');
+            projects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.id;
+                option.textContent = project.name;
+                if (project.client_name) {
+                    option.textContent += ` (${project.client_name})`;
+                }
+                projectSelect.appendChild(option);
+            });
+
+            // Pre-select project if project_id is in URL query params
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectIdParam = urlParams.get('project_id');
+            if (projectIdParam) {
+                projectSelect.value = projectIdParam;
+
+                // Fetch project details and populate scope
+                try {
+                    const projectResponse = await fetch(`/api/projects/${projectIdParam}`);
+                    if (projectResponse.ok) {
+                        const projectData = await projectResponse.json();
+
+                        // Populate targets field with project scope
+                        if (projectData.scope && projectData.scope.length > 0) {
+                            const targetsTextarea = document.getElementById('targets');
+                            targetsTextarea.value = projectData.scope.join('\n');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading project details:', error);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading projects:', error);
+        }
+    });
+
     // Scan template definitions
     const scanTemplates = {
         'quick-web': {
@@ -418,6 +474,8 @@
             return;
         }
 
+        const projectId = formData.get('project_id');
+
         const scanData = {
             name: formData.get('name') || null,
             targets: targets,
@@ -431,7 +489,8 @@
             use_nmap: formData.get('use_nmap') === 'on',
             ai_provider: formData.get('ai_provider') || null,
             ai_model: formData.get('ai_model') || null,
-            ai_base_url: formData.get('ai_base_url') || null
+            ai_base_url: formData.get('ai_base_url') || null,
+            project_id: projectId ? parseInt(projectId) : null
         };
 
         try {

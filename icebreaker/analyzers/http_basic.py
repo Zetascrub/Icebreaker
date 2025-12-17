@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import List
 from icebreaker.core.models import RunContext, Service, Finding
-from icebreaker.analyzers.template_lookup import get_template_id
+
 
 class HTTPBasic:
     id = "http_basic"
@@ -20,8 +20,12 @@ class HTTPBasic:
                 title="Server header exposed",
                 severity="INFO",
                 target=service.target, port=service.port,
-                tags=["http", "header"], details={"server": server},
-                template_id=get_template_id("ICEBREAKER-007")
+                tags=["http", "header"],
+                details={"server": server},
+                description="The HTTP Server header is exposed, revealing information about the web server software and potentially its version.",
+                impact="Attackers can use this information to identify known vulnerabilities specific to the web server software and version being used.",
+                recommendation="Configure the web server to remove or obscure the Server header. For Apache, use 'ServerTokens Prod' and 'ServerSignature Off'. For Nginx, use 'server_tokens off;'.",
+                references=["CWE-200", "OWASP-A01:2021"]
             ))
         if service.name == "http" and not title:
             f.append(Finding(
@@ -30,6 +34,9 @@ class HTTPBasic:
                 severity="INFO",
                 target=service.target, port=service.port,
                 tags=["http", "content"],
+                description="The web page does not have a title or the title is empty.",
+                impact="This may indicate a misconfigured or default installation, and could affect SEO and user experience.",
+                recommendation="Ensure all web pages have descriptive titles that accurately reflect their content."
             ))
 
         # Redirect to TLS check (on port 80)
@@ -46,6 +53,10 @@ class HTTPBasic:
                     target=service.target, port=service.port,
                     tags=["http", "tls", "redirect"],
                     details={"status": str(status), "location": location},
+                    description="The HTTP service does not automatically redirect to HTTPS. Users accessing the site over HTTP will transmit data in cleartext.",
+                    impact="Without HTTPS redirection, users may inadvertently send sensitive information (credentials, session tokens, personal data) over an unencrypted connection, exposing it to man-in-the-middle attacks and eavesdropping.",
+                    recommendation="Configure the web server to redirect all HTTP traffic to HTTPS using a 301 (permanent) or 308 (permanent, preserves method) redirect. Example for Apache: 'Redirect permanent / https://yourdomain.com/'. For Nginx: 'return 301 https://$host$request_uri;'",
+                    references=["CWE-319", "OWASP-A02:2021"]
                 ))
 
         # HSTS check (on port 443)
@@ -58,7 +69,10 @@ class HTTPBasic:
                     severity="LOW",
                     target=service.target, port=service.port,
                     tags=["https", "hsts"],
-                    template_id=get_template_id("ICEBREAKER-002")
+                    description="The Strict-Transport-Security (HSTS) HTTP header is not set on this HTTPS service. HSTS instructs browsers to only access the site over HTTPS, even if the user types 'http://' or clicks an HTTP link.",
+                    impact="Without HSTS, users remain vulnerable to protocol downgrade attacks and cookie hijacking. Attackers can intercept the initial HTTP request before redirection to HTTPS, or strip TLS from the connection.",
+                    recommendation="Add the 'Strict-Transport-Security' header to all HTTPS responses. Recommended value: 'Strict-Transport-Security: max-age=31536000; includeSubDomains; preload'. Consider submitting to the HSTS preload list.",
+                    references=["CWE-319", "OWASP-A02:2021", "RFC-6797"]
                 ))
 
         return f

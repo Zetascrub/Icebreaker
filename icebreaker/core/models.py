@@ -54,5 +54,7 @@ class Finding(BaseModel):
     details: Dict[str, Any] = Field(default_factory=dict)
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)  # 0.0 to 1.0
     risk_score: Optional[float] = Field(default=None, ge=0.0, le=10.0)  # 0.0 to 10.0
-    recommendation: Optional[str] = None
-    template_id: Optional[int] = None  # Link to FindingTemplate in database
+    description: Optional[str] = None  # Full description of the finding
+    impact: Optional[str] = None  # Business/security impact
+    recommendation: Optional[str] = None  # How to fix/remediate
+    references: List[str] = Field(default_factory=list)  # CVE, CWE, OWASP references

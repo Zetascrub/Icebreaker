@@ -96,8 +96,7 @@
                     </div>
 
                     <div class="w-full bg-gray-200 rounded-full h-4">
-                        {% set risk_percent = min(100, (summary.total_risk_score / 200) * 100) %}
-                        <div class="bg-{{ risk_color }}-600 h-4 rounded-full" style="width: {{ risk_percent }}%"></div>
+                        <div class="bg-{{ risk_color }}-600 h-4 rounded-full" style="width: {{ summary.risk_percent }}%"></div>
                     </div>
                 </div>
             </div>

@@ -16,7 +16,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from icebreaker.api.routers import scans, targets, settings, finding_templates, import_templates, analytics, reports, exports, schedules, findings, screenshots, plugins
+from icebreaker.api.routers import scans, targets, settings, import_templates, analytics, reports, exports, schedules, findings, screenshots, plugins, projects
 from icebreaker.api.websocket import manager
 from icebreaker.api.csrf import CSRFMiddleware, get_csrf_token
 from icebreaker.db.database import init_db, get_db
@@ -111,7 +111,6 @@ templates.env.globals["get_csrf_token"] = get_csrf_token
 app.include_router(scans.router, prefix="/api", tags=["scans"])
 app.include_router(targets.router, prefix="/api", tags=["targets"])
 app.include_router(settings.router, prefix="/api", tags=["settings"])
-app.include_router(finding_templates.router, prefix="/api", tags=["finding_templates"])
 app.include_router(import_templates.router, prefix="/api", tags=["import"])
 app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(reports.router, prefix="/api", tags=["reports"])
@@ -120,6 +119,7 @@ app.include_router(schedules.router, prefix="/api", tags=["schedules"])
 app.include_router(findings.router, prefix="/api", tags=["findings"])
 app.include_router(screenshots.router, prefix="/api", tags=["screenshots"])
 app.include_router(plugins.router, prefix="/api", tags=["plugins"])
+app.include_router(projects.router, prefix="/api", tags=["projects"])
 
 
 @app.get("/health")
@@ -168,16 +168,24 @@ async def settings_page(request: Request):
     return templates.TemplateResponse("settings.html", {"request": request})
 
 
-@app.get("/finding-templates", response_class=HTMLResponse)
-async def finding_templates_page(request: Request):
-    """Finding templates management page."""
-    return templates.TemplateResponse("finding_templates.html", {"request": request})
 
 
 @app.get("/plugins", response_class=HTMLResponse)
 async def plugins_page(request: Request):
     """Plugin management page."""
     return templates.TemplateResponse("plugins.html", {"request": request})
+
+
+@app.get("/projects", response_class=HTMLResponse)
+async def projects_page(request: Request):
+    """Projects management page."""
+    return templates.TemplateResponse("projects.html", {"request": request})
+
+
+@app.get("/projects/{project_id}", response_class=HTMLResponse)
+async def project_detail_page(request: Request, project_id: int):
+    """Project detail page."""
+    return templates.TemplateResponse("project_detail.html", {"request": request, "project_id": project_id})
 
 
 @app.get("/import", response_class=HTMLResponse)

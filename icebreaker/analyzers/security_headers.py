@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import List
 from icebreaker.core.models import RunContext, Service, Finding
-from icebreaker.analyzers.template_lookup import get_template_id
 
 
 class SecurityHeaders:
@@ -35,8 +34,10 @@ class SecurityHeaders:
                 target=service.target,
                 port=service.port,
                 tags=["http", "security-headers", "csp"],
-                details={"recommendation": "Add CSP header to prevent XSS attacks"},
-                template_id=get_template_id("ICEBREAKER-009")
+                description="The Content-Security-Policy (CSP) HTTP header is not set. CSP is an added layer of security that helps detect and mitigate certain types of attacks, including Cross-Site Scripting (XSS) and data injection attacks.",
+                impact="Without CSP, the application is more vulnerable to XSS attacks, clickjacking, and other code injection attacks that could lead to data theft, session hijacking, or malware distribution.",
+                recommendation="Implement a Content-Security-Policy header with a restrictive policy. Start with 'default-src \\'self\\'' and gradually add trusted sources. Use 'script-src', 'style-src', 'img-src' directives to control resource loading.",
+                references=["CWE-693", "OWASP-A05:2021"]
             ))
 
         # Check for X-Frame-Options
@@ -49,8 +50,10 @@ class SecurityHeaders:
                 target=service.target,
                 port=service.port,
                 tags=["http", "security-headers", "clickjacking"],
-                details={"recommendation": "Add 'X-Frame-Options: DENY' or 'SAMEORIGIN'"},
-                template_id=get_template_id("ICEBREAKER-003")
+                description="The X-Frame-Options HTTP header is not set. This header indicates whether a browser should be allowed to render a page in a <frame>, <iframe>, <embed> or <object> element.",
+                impact="Without this header, the application is vulnerable to clickjacking attacks where an attacker could embed this page in a malicious site and trick users into clicking hidden elements.",
+                recommendation="Add 'X-Frame-Options: DENY' to prevent all framing, or 'X-Frame-Options: SAMEORIGIN' to allow framing only from the same origin.",
+                references=["CWE-1021", "OWASP-A05:2021"]
             ))
 
         # Check for X-Content-Type-Options
@@ -63,8 +66,10 @@ class SecurityHeaders:
                 target=service.target,
                 port=service.port,
                 tags=["http", "security-headers", "mime-sniffing"],
-                details={"recommendation": "Add 'X-Content-Type-Options: nosniff'"},
-                template_id=get_template_id("ICEBREAKER-004")
+                description="The X-Content-Type-Options HTTP header is not set. This header prevents browsers from MIME-sniffing a response away from the declared content-type.",
+                impact="Browsers may incorrectly detect file types, potentially executing malicious content disguised as innocent file types, leading to XSS attacks.",
+                recommendation="Add 'X-Content-Type-Options: nosniff' to prevent MIME-type sniffing.",
+                references=["CWE-693"]
             ))
 
         # Check for Referrer-Policy
@@ -77,7 +82,10 @@ class SecurityHeaders:
                 target=service.target,
                 port=service.port,
                 tags=["http", "security-headers", "privacy"],
-                details={"recommendation": "Add 'Referrer-Policy: no-referrer' or 'strict-origin-when-cross-origin'"}
+                description="The Referrer-Policy HTTP header is not set. This header controls how much referrer information is included with requests.",
+                impact="Sensitive information in URLs may be leaked to third parties through the Referer header, potentially exposing session tokens, user IDs, or other sensitive data.",
+                recommendation="Add 'Referrer-Policy: no-referrer' for maximum privacy or 'strict-origin-when-cross-origin' for a balanced approach.",
+                references=["CWE-200"]
             ))
 
         # Check for Permissions-Policy (formerly Feature-Policy)
@@ -91,7 +99,10 @@ class SecurityHeaders:
                 target=service.target,
                 port=service.port,
                 tags=["http", "security-headers", "permissions"],
-                details={"recommendation": "Add Permissions-Policy to control browser features"}
+                description="The Permissions-Policy HTTP header is not set. This header allows you to control which browser features and APIs can be used.",
+                impact="Without this header, the application cannot restrict potentially dangerous browser features like geolocation, camera, microphone access, which could be exploited by malicious scripts.",
+                recommendation="Add Permissions-Policy header to disable unnecessary features. Example: 'Permissions-Policy: geolocation=(), microphone=(), camera=()'",
+                references=["OWASP-A05:2021"]
             ))
 
         # Check for deprecated X-XSS-Protection

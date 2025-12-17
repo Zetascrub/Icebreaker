@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List
 import OpenSSL.crypto
 from icebreaker.core.models import RunContext, Service, Finding
-from icebreaker.analyzers.template_lookup import get_template_id
 
 
 class SSLCertAnalyzer:
@@ -35,13 +34,30 @@ class SSLCertAnalyzer:
             result = analyzer.analyze(service.target, service.port)
 
             for finding_dict in result.get("findings", []):
-                # Map finding title to template ID
-                template_id = None
+                # Add description and impact based on finding type
+                description = finding_dict.get("description", "")
+                impact = ""
+                references = []
+
                 title = finding_dict["title"]
-                if "Expired SSL Certificate" in title or "Expiring" in title:
-                    template_id = get_template_id("ICEBREAKER-006")
+                if "Expired SSL Certificate" in title:
+                    impact = "An expired SSL certificate will cause browsers to display security warnings, preventing users from accessing the site. This can lead to loss of trust, revenue, and potential data exposure if users bypass the warnings."
+                    references = ["CWE-295", "CWE-298"]
+                elif "Expiring Soon" in title:
+                    impact = "If the certificate expires without renewal, browsers will display security warnings and block access to the site, causing service disruption and potential data exposure."
+                    references = ["CWE-295"]
+                elif "Expiring" in title:
+                    impact = "Certificate expiration will cause browsers to display security warnings, potentially disrupting service and user access."
+                    references = ["CWE-295"]
                 elif "Self-Signed" in title:
-                    template_id = get_template_id("ICEBREAKER-005")
+                    impact = "Self-signed certificates are not trusted by browsers by default, causing security warnings for all users. This can lead to users bypassing security warnings, creating vulnerability to man-in-the-middle attacks."
+                    references = ["CWE-295", "CWE-296"]
+                elif "Weak Certificate Signature Algorithm" in title:
+                    impact = "Weak signature algorithms like SHA-1 can be exploited to forge certificates, allowing attackers to impersonate the server and intercept encrypted traffic."
+                    references = ["CWE-327", "CVE-2017-15361"]
+                elif "Weak SSL Key Size" in title:
+                    impact = "Small key sizes can be broken with sufficient computing power, allowing attackers to decrypt traffic or forge certificates. Modern standards require at least 2048-bit RSA keys."
+                    references = ["CWE-326", "NIST-SP-800-57"]
 
                 findings.append(Finding(
                     id=f"ssl_cert.{finding_dict.get('category', 'misc')}.{service.target}.{service.port}",
@@ -51,8 +67,10 @@ class SSLCertAnalyzer:
                     port=service.port,
                     tags=["ssl", "tls", finding_dict.get("category", "cert")],
                     details=result,
+                    description=description,
+                    impact=impact,
                     recommendation=finding_dict.get("recommendation"),
-                    template_id=template_id
+                    references=references
                 ))
 
         except Exception as e:

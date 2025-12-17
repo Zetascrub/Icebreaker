@@ -102,6 +102,9 @@ class ReportGenerator:
             for sev, weight in risk_weights.items()
         )
 
+        # Calculate risk percentage (capped at 100%)
+        risk_percent = min(100, (total_risk_score / 200) * 100)
+
         # Group findings by severity
         findings_by_severity = defaultdict(list)
         for finding in findings:
@@ -158,6 +161,7 @@ class ReportGenerator:
                 'severity_counts': dict(severity_counts),
                 'status_counts': dict(status_counts),
                 'total_risk_score': total_risk_score,
+                'risk_percent': risk_percent,
             },
             'findings': findings,
             'findings_by_severity': dict(findings_by_severity),

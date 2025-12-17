@@ -11,6 +11,51 @@ import enum
 Base = declarative_base()
 
 
+class ProjectStatus(enum.Enum):
+    """Project status enumeration."""
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+    COMPLETED = "completed"
+
+
+class Project(Base):
+    """Project/Workspace for organizing scans by client or engagement."""
+    __tablename__ = "projects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, index=True)
+    client_name = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+
+    # Engagement details
+    engagement_type = Column(String(100), nullable=True)  # e.g., "External Pentest", "Internal Audit"
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+
+    # Status and metadata
+    status = Column(SQLEnum(ProjectStatus), default=ProjectStatus.ACTIVE, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by = Column(String(100), nullable=True)  # Username/email of creator
+
+    # Scope and notes
+    scope = Column(JSON, nullable=True)  # List of IP ranges, domains, etc.
+    notes = Column(Text, nullable=True)
+    tags = Column(JSON, nullable=True)  # Project tags for categorization
+
+    # Statistics (computed/cached)
+    total_scans = Column(Integer, default=0)
+    total_findings = Column(Integer, default=0)
+    critical_findings = Column(Integer, default=0)
+    high_findings = Column(Integer, default=0)
+
+    # Relationships
+    scans = relationship("Scan", back_populates="project", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Project(id={self.id}, name={self.name}, status={self.status})>"
+
+
 class ScanStatus(enum.Enum):
     """Scan status enumeration."""
     PENDING = "pending"
@@ -34,6 +79,9 @@ class Scan(Base):
     duration_seconds = Column(Integer, nullable=True)
     error_message = Column(Text, nullable=True)
 
+    # Project assignment
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
+
     # Scan history tracking
     parent_scan_id = Column(Integer, ForeignKey("scans.id"), nullable=True, index=True)
 
@@ -53,6 +101,7 @@ class Scan(Base):
     ports_scanned = Column(Integer, default=0)  # Total ports scanned so far
 
     # Relationships
+    project = relationship("Project", back_populates="scans")
     targets = relationship("Target", back_populates="scan", cascade="all, delete-orphan")
     services = relationship("Service", back_populates="scan", cascade="all, delete-orphan")
     findings = relationship("Finding", back_populates="scan", cascade="all, delete-orphan")
@@ -148,11 +197,14 @@ class Finding(Base):
     details = Column(JSON, default=dict)
     confidence = Column(Float, default=1.0)
     risk_score = Column(Float, nullable=True, index=True)
-    recommendation = Column(Text, nullable=True)
-    false_positive = Column(Boolean, default=False, index=True)
 
-    # Template linkage
-    template_id = Column(Integer, ForeignKey("finding_templates.id"), nullable=True, index=True)
+    # Finding details (from plugins)
+    description = Column(Text, nullable=True)  # Full description of the finding
+    impact = Column(Text, nullable=True)  # Business/security impact
+    recommendation = Column(Text, nullable=True)  # How to fix/remediate
+    references = Column(JSON, default=list)  # CVE, CWE, OWASP references
+
+    false_positive = Column(Boolean, default=False, index=True)
 
     # Workflow & tracking
     status = Column(String(20), default="new", index=True)  # new, confirmed, in_progress, fixed, false_positive, accepted_risk
@@ -163,50 +215,9 @@ class Finding(Base):
 
     # Relationship
     scan = relationship("Scan", back_populates="findings")
-    template = relationship("FindingTemplate", back_populates="findings")
 
     def __repr__(self):
         return f"<Finding(id={self.id}, title={self.title}, severity={self.severity})>"
-
-
-class FindingTemplate(Base):
-    """Finding template with standardized descriptions and remediation."""
-    __tablename__ = "finding_templates"
-
-    id = Column(Integer, primary_key=True, index=True)
-    finding_id = Column(String(100), unique=True, nullable=False, index=True)  # e.g., "ICEBREAKER-001"
-    title = Column(String(500), nullable=False)
-    category = Column(String(100), nullable=True, index=True)  # e.g., "TLS/SSL", "HTTP Headers", "Authentication"
-
-    # Detailed information
-    description = Column(Text, nullable=False)  # What is this finding?
-    impact = Column(Text, nullable=False)  # What could happen if exploited?
-    remediation = Column(Text, nullable=False)  # How to fix it?
-
-    # Risk assessment
-    severity = Column(String(20), nullable=False, index=True)  # critical, high, medium, low, info
-    cvss_score = Column(Float, nullable=True)
-    cvss_vector = Column(String(255), nullable=True)  # e.g., "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N"
-
-    # Compliance & references
-    cwe_id = Column(String(50), nullable=True)  # e.g., "CWE-326"
-    owasp_2021 = Column(String(100), nullable=True)  # e.g., "A02:2021 – Cryptographic Failures"
-    pci_dss = Column(String(100), nullable=True)  # e.g., "Requirement 4.1"
-    nist_csf = Column(String(100), nullable=True)  # NIST Cybersecurity Framework mapping
-    references = Column(JSON, default=list)  # List of URLs, RFCs, etc.
-
-    # Metadata
-    enabled = Column(Boolean, default=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    created_by = Column(String(255), nullable=True)  # Username who created/imported template
-
-    # Relationships
-    findings = relationship("Finding", back_populates="template")
-    plugins = relationship("Plugin", back_populates="template")
-
-    def __repr__(self):
-        return f"<FindingTemplate(id={self.id}, finding_id={self.finding_id}, title={self.title})>"
 
 
 class ScanProfile(Base):
@@ -511,9 +522,6 @@ class Plugin(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_executed = Column(DateTime, nullable=True)
     execution_count = Column(Integer, default=0)
-
-    # Relationships
-    template = relationship("FindingTemplate", back_populates="plugins")
 
     def __repr__(self):
         return f"<Plugin(id={self.id}, plugin_id={self.plugin_id}, name={self.name})>"

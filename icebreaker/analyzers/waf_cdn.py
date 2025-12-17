@@ -5,7 +5,6 @@ from __future__ import annotations
 import httpx
 from typing import Dict, Any, List, Optional
 from icebreaker.core.models import RunContext, Service, Finding
-from icebreaker.analyzers.template_lookup import get_template_id
 
 
 class WAFCDNDetector:
@@ -33,28 +32,42 @@ class WAFCDNDetector:
             result = analyzer.analyze(service.target, service.port, use_https)
 
             for finding_dict in result.get("findings", []):
-                # Map finding to template ID
-                template_id = None
-                title = finding_dict["title"]
-                if "WAF" in title or "CDN" in title or "Content Delivery Network" in title:
-                    # Only map informational WAF/CDN detections to template
-                    if finding_dict.get("category") in ["waf", "cdn"]:
-                        template_id = get_template_id("ICEBREAKER-010")
+                # Add description, impact, and references based on finding type
+                description = finding_dict.get("description", "")
+                impact = ""
+                references = []
+
+                category = finding_dict.get("category", "misc")
+                if category == "waf":
+                    if "No WAF Protection Against SQL Injection" in finding_dict["title"]:
+                        impact = "Without WAF protection, the application is directly exposed to SQL injection attacks, which can lead to data breaches, unauthorized access, data manipulation, or complete database compromise."
+                        references = ["CWE-89", "OWASP-A03:2021"]
+                    else:
+                        impact = "The presence of a WAF provides an additional security layer, but should not be relied upon as the sole defense mechanism."
+                        references = []
+                elif category == "cdn":
+                    impact = "CDNs can improve performance and provide DDoS protection, but misconfigured CDNs may expose origin servers or create cache poisoning vulnerabilities."
+                    references = []
+                elif category == "headers":
+                    impact = "Missing security headers increase the attack surface and make the application more vulnerable to various client-side attacks."
+                    references = ["OWASP-A05:2021"]
 
                 findings.append(Finding(
-                    id=f"waf_cdn.{finding_dict.get('category', 'misc')}.{service.target}.{service.port}",
+                    id=f"waf_cdn.{category}.{service.target}.{service.port}",
                     title=finding_dict["title"],
                     severity=finding_dict["severity"].upper(),
                     target=service.target,
                     port=service.port,
-                    tags=[finding_dict.get("category", "waf"), "security"],
+                    tags=[category, "security"],
                     details={
-                        "description": finding_dict["description"],
+                        "description": description,
                         "waf_detected": result.get("waf_detected", []),
                         "cdn_detected": result.get("cdn_detected", [])
                     },
+                    description=description,
+                    impact=impact,
                     recommendation=finding_dict.get("recommendation"),
-                    template_id=template_id
+                    references=references
                 ))
 
             analyzer.close()

@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from typing import List
 
 from icebreaker.core.models import RunContext, Service, Finding
-from icebreaker.analyzers.template_lookup import get_template_id
 
 
 class TLSAnalyzer:
@@ -59,7 +58,11 @@ class TLSAnalyzer:
                         target=service.target,
                         port=service.port,
                         tags=["tls", "protocol", "ssl"],
-                        details={"protocol": protocol}
+                        details={"protocol": protocol},
+                        description=f"The server supports the insecure {protocol} protocol, which has known cryptographic weaknesses and should never be used.",
+                        impact="SSLv2 and SSLv3 have critical security flaws including DROWN, POODLE, and other attacks that allow attackers to decrypt traffic, downgrade connections, and compromise encrypted data.",
+                        recommendation=f"Disable {protocol} support immediately. Configure the server to only accept TLS 1.2 and TLS 1.3 connections. Update server configuration to remove legacy protocol support.",
+                        references=["CVE-2016-0800", "CVE-2014-3566", "CWE-327", "OWASP-A02:2021"]
                     ))
                 elif protocol in ('TLSv1', 'TLSv1.1'):
                     findings.append(Finding(
@@ -70,7 +73,10 @@ class TLSAnalyzer:
                         port=service.port,
                         tags=["tls", "protocol"],
                         details={"protocol": protocol},
-                        template_id=get_template_id("ICEBREAKER-001")
+                        description=f"The server supports {protocol}, which is deprecated and no longer considered secure by modern standards. Major browsers and security standards organizations have removed support for these protocols.",
+                        impact="TLS 1.0 and 1.1 have known vulnerabilities including BEAST and other cryptographic weaknesses. Using deprecated protocols exposes connections to downgrade attacks and may prevent access from modern browsers.",
+                        recommendation="Disable TLS 1.0 and TLS 1.1 support. Configure the server to only accept TLS 1.2 (minimum) and TLS 1.3 (recommended). Update cipher suite configuration to use modern, secure ciphers.",
+                        references=["RFC-8996", "CWE-327", "PCI-DSS-v4.0"]
                     ))
 
                 # Check certificate expiration
@@ -92,7 +98,10 @@ class TLSAnalyzer:
                                     port=service.port,
                                     tags=["tls", "certificate", "expired"],
                                     details={"expired_on": not_after},
-                                    template_id=get_template_id("ICEBREAKER-006")
+                                    description="The SSL/TLS certificate for this service has expired and is no longer valid.",
+                                    impact="Browsers will display security warnings preventing users from accessing the site. This causes service disruption, loss of user trust, and potential security risks if users bypass warnings.",
+                                    recommendation="Renew the SSL certificate immediately. Implement automated certificate renewal using tools like Let's Encrypt with certbot, or set up monitoring to alert before expiration.",
+                                    references=["CWE-295", "CWE-298"]
                                 ))
                             elif (expiry - now).days < 30:
                                 findings.append(Finding(
@@ -103,7 +112,10 @@ class TLSAnalyzer:
                                     port=service.port,
                                     tags=["tls", "certificate", "expiring"],
                                     details={"expires_on": not_after, "days_remaining": (expiry - now).days},
-                                    template_id=get_template_id("ICEBREAKER-006")
+                                    description=f"The SSL/TLS certificate will expire in {(expiry - now).days} days.",
+                                    impact="If not renewed before expiration, the service will become inaccessible to users due to browser security warnings.",
+                                    recommendation="Renew the SSL certificate before it expires. Consider implementing automated certificate renewal and monitoring to prevent future expiration issues.",
+                                    references=["CWE-295"]
                                 ))
                         except Exception:
                             pass
@@ -120,7 +132,10 @@ class TLSAnalyzer:
                             port=service.port,
                             tags=["tls", "certificate", "self-signed"],
                             details={"issuer": str(issuer)},
-                            template_id=get_template_id("ICEBREAKER-005")
+                            description="The SSL/TLS certificate is self-signed rather than issued by a trusted Certificate Authority (CA).",
+                            impact="Browsers will display security warnings to all users, as self-signed certificates are not trusted by default. This creates a poor user experience and may lead users to bypass security warnings, making them vulnerable to man-in-the-middle attacks.",
+                            recommendation="Obtain a certificate from a trusted Certificate Authority. Consider using Let's Encrypt for free, automated certificates, or purchase a certificate from a commercial CA for extended validation.",
+                            references=["CWE-295", "CWE-296"]
                         ))
 
             # Clean up connection
@@ -139,7 +154,10 @@ class TLSAnalyzer:
                 target=service.target,
                 port=service.port,
                 tags=["tls", "error"],
-                details={"error": str(e)}
+                details={"error": str(e)},
+                description=f"An SSL/TLS error occurred while connecting to the service: {str(e)}",
+                impact="This may indicate a configuration issue, protocol mismatch, or potential security problem with the SSL/TLS setup.",
+                recommendation="Review server SSL/TLS configuration, ensure valid certificates are installed, and verify protocol and cipher suite settings."
             ))
         except Exception:
             # Generic connection errors - skip

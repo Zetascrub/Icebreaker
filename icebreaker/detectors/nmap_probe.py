@@ -137,27 +137,51 @@ class NmapProbe:
         """
         import subprocess
         import xml.etree.ElementTree as ET
+        import tempfile
+        import os
 
         services = []
 
-        # Build nmap command
-        target_list = " ".join(targets)
-        cmd = [
-            "nmap",
-            "-p", port_spec,
-            "--host-timeout", f"{int(self.timeout)}s",
-            "-oX", "-",  # Output XML to stdout
-        ]
+        # For large target lists, use a target file to avoid "Argument list too long" error
+        if len(targets) > 50:
+            # Create temporary target file
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as tf:
+                tf.write('\n'.join(targets))
+                target_file = tf.name
 
-        # Add scan arguments
-        if self.scan_arguments:
-            cmd.extend(self.scan_arguments.split())
+            cmd = [
+                "nmap",
+                "-p", port_spec,
+                "--host-timeout", f"{int(self.timeout)}s",
+                "-oX", "-",  # Output XML to stdout
+                "-iL", target_file,  # Read targets from file
+            ]
 
-        # Add targets
-        cmd.extend(targets)
+            # Add scan arguments
+            if self.scan_arguments:
+                cmd.extend(self.scan_arguments.split())
+
+            use_target_file = True
+        else:
+            # For small lists, pass targets directly
+            cmd = [
+                "nmap",
+                "-p", port_spec,
+                "--host-timeout", f"{int(self.timeout)}s",
+                "-oX", "-",  # Output XML to stdout
+            ]
+
+            # Add scan arguments
+            if self.scan_arguments:
+                cmd.extend(self.scan_arguments.split())
+
+            # Add targets
+            cmd.extend(targets)
+            use_target_file = False
+            target_file = None
 
         if not ctx.settings.get("quiet", self.quiet):
-            logger.info(f"Running: {' '.join(cmd)}")
+            logger.info(f"Running nmap on {len(targets)} targets with ports {port_spec}")
 
         # Run nmap asynchronously
         try:
@@ -171,54 +195,60 @@ class NmapProbe:
 
             if process.returncode != 0:
                 logger.error(f"Nmap failed: {stderr.decode()}")
-                return services
+            else:
+                # Parse XML output
+                try:
+                    root = ET.fromstring(stdout.decode())
 
-            # Parse XML output
-            try:
-                root = ET.fromstring(stdout.decode())
-
-                for host in root.findall("host"):
-                    # Get host address
-                    address_elem = host.find("address")
-                    if address_elem is None:
-                        continue
-
-                    host_addr = address_elem.get("addr")
-
-                    # Get open ports
-                    ports_elem = host.find("ports")
-                    if ports_elem is None:
-                        continue
-
-                    for port_elem in ports_elem.findall("port"):
-                        state_elem = port_elem.find("state")
-                        if state_elem is None or state_elem.get("state") != "open":
+                    for host in root.findall("host"):
+                        # Get host address
+                        address_elem = host.find("address")
+                        if address_elem is None:
                             continue
 
-                        port_num = int(port_elem.get("portid"))
+                        host_addr = address_elem.get("addr")
 
-                        # Get service info
-                        service_elem = port_elem.find("service")
-                        service_name = "unknown"
-                        if service_elem is not None:
-                            service_name = service_elem.get("name", "unknown")
+                        # Get open ports
+                        ports_elem = host.find("ports")
+                        if ports_elem is None:
+                            continue
 
-                        # Create service
-                        svc = Service(
-                            target=host_addr,
-                            port=port_num,
-                            name=service_name,
-                            meta={}
-                        )
-                        services.append(svc)
+                        for port_elem in ports_elem.findall("port"):
+                            state_elem = port_elem.find("state")
+                            if state_elem is None or state_elem.get("state") != "open":
+                                continue
 
-                        if not ctx.settings.get("quiet", self.quiet):
-                            console.print(f"[OPEN ] {host_addr}:{port_num}/tcp {service_name}")
+                            port_num = int(port_elem.get("portid"))
 
-            except ET.ParseError as e:
-                logger.error(f"Failed to parse nmap XML output: {e}")
+                            # Get service info
+                            service_elem = port_elem.find("service")
+                            service_name = "unknown"
+                            if service_elem is not None:
+                                service_name = service_elem.get("name", "unknown")
+
+                            # Create service
+                            svc = Service(
+                                target=host_addr,
+                                port=port_num,
+                                name=service_name,
+                                meta={}
+                            )
+                            services.append(svc)
+
+                            if not ctx.settings.get("quiet", self.quiet):
+                                console.print(f"[OPEN ] {host_addr}:{port_num}/tcp {service_name}")
+
+                except ET.ParseError as e:
+                    logger.error(f"Failed to parse nmap XML output: {e}")
 
         except Exception as e:
             logger.error(f"Nmap execution failed: {e}")
+        finally:
+            # Clean up temporary target file if used
+            if use_target_file and target_file:
+                try:
+                    os.unlink(target_file)
+                except Exception:
+                    pass
 
         return services

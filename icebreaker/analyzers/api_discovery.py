@@ -150,29 +150,54 @@ class APIDiscoveryAnalyzer:
             try:
                 response = self.client.get(url)
                 if response.status_code < 400:
+                    content = response.text
+                    content_length = len(content)
+
+                    # Validate this is a real response, not a generic error page
+                    # Real API endpoints should have substantial content
+                    if content_length < 100:
+                        continue
+
+                    # Check if it's just a generic "200 OK" page
+                    if "<center>200 ok</center>" in content.lower():
+                        continue
+
                     self.discovered_endpoints.add(path)
 
                     # Check if it's documentation
                     if any(doc in path.lower() for doc in ['swagger', 'openapi', 'docs', 'redoc']):
-                        result["documentation_found"].append({
-                            "path": path,
-                            "status_code": response.status_code,
-                            "content_type": response.headers.get("content-type", "")
-                        })
+                        # Validate it's actually API documentation
+                        content_lower = content.lower()
+                        is_api_docs = (
+                            "swagger" in content_lower or
+                            "openapi" in content_lower or
+                            '"openapi"' in content or
+                            '"swagger"' in content or
+                            "api" in content_lower and ("endpoint" in content_lower or "schema" in content_lower)
+                        )
 
-                        findings.append({
-                            "title": "API Documentation Exposed",
-                            "severity": "low",
-                            "description": f"API documentation found at: {path}",
-                            "recommendation": "Ensure API documentation doesn't expose sensitive information. "
-                                             "Consider restricting access in production.",
-                            "category": "api"
-                        })
+                        if is_api_docs:
+                            result["documentation_found"].append({
+                                "path": path,
+                                "status_code": response.status_code,
+                                "content_type": response.headers.get("content-type", ""),
+                                "content_length": content_length
+                            })
+
+                            findings.append({
+                                "title": "API Documentation Exposed",
+                                "severity": "low",
+                                "description": f"API documentation found at: {path}",
+                                "recommendation": "Ensure API documentation doesn't expose sensitive information. "
+                                                 "Consider restricting access in production.",
+                                "category": "api"
+                            })
                     else:
                         result["api_endpoints"].append({
                             "path": path,
                             "status_code": response.status_code,
-                            "content_type": response.headers.get("content-type", "")
+                            "content_type": response.headers.get("content-type", ""),
+                            "content_length": content_length
                         })
             except Exception:
                 continue
@@ -238,13 +263,29 @@ class APIDiscoveryAnalyzer:
             try:
                 response = self.client.get(url)
                 if response.status_code in [200, 301, 302]:
-                    findings.append({
-                        "title": "Potential Admin Endpoint Accessible",
-                        "severity": "high",
-                        "description": f"Admin endpoint at {admin_path} returned status {response.status_code}.",
-                        "recommendation": "Ensure admin endpoints require strong authentication.",
-                        "category": "api"
-                    })
+                    content = response.text
+
+                    # Validate it's not a generic 200 OK page
+                    if len(content) < 100 or "<center>200 ok</center>" in content.lower():
+                        continue
+
+                    # Check if it looks like an actual admin panel
+                    content_lower = content.lower()
+                    is_admin = (
+                        "admin" in content_lower or
+                        "dashboard" in content_lower or
+                        "login" in content_lower and "admin" in content_lower or
+                        "management" in content_lower
+                    )
+
+                    if is_admin:
+                        findings.append({
+                            "title": "Potential Admin Endpoint Accessible",
+                            "severity": "high",
+                            "description": f"Admin endpoint at {admin_path} returned status {response.status_code}.",
+                            "recommendation": "Ensure admin endpoints require strong authentication.",
+                            "category": "api"
+                        })
             except Exception:
                 continue
 
@@ -255,6 +296,23 @@ class APIDiscoveryAnalyzer:
             try:
                 response = self.client.get(url)
                 if response.status_code == 200:
+                    content = response.text
+
+                    # Validate it's not a generic 200 OK page
+                    if len(content) < 100 or "<center>200 ok</center>" in content.lower():
+                        continue
+
+                    # For .env and config.json, use strict validation
+                    if debug_path in ["/.env", "/config.json"]:
+                        if debug_path == "/.env":
+                            # .env files should have KEY=VALUE format
+                            if "=" not in content or "<html" in content.lower():
+                                continue
+                        elif debug_path == "/config.json":
+                            # Should be valid JSON
+                            if not content.strip().startswith("{"):
+                                continue
+
                     findings.append({
                         "title": "Debug Endpoint Exposed",
                         "severity": "high",

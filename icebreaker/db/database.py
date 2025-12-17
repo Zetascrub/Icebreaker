@@ -45,12 +45,7 @@ def init_db():
     # Run migrations if needed
     apply_migrations()
 
-    # Seed finding templates
-    try:
-        from icebreaker.db.seed_finding_templates import seed_finding_templates
-        seed_finding_templates()
-    except Exception as e:
-        print(f"⚠️  Warning: Could not seed finding templates: {e}")
+    # Template system has been removed - findings now come directly from analyzers
 
 
 def apply_migrations():

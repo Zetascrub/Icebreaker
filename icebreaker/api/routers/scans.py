@@ -15,7 +15,7 @@ import json
 import io
 
 from icebreaker.db.database import get_db
-from icebreaker.db.models import Scan, Target, Service, Finding, ScanStatus
+from icebreaker.db.models import Scan, Target, Service, Finding, ScanStatus, Project
 from icebreaker.core.models import RunContext, Target as CoreTarget
 from icebreaker.engine.orchestrator import Orchestrator
 from icebreaker.core.network_utils import expand_targets
@@ -40,6 +40,7 @@ class ScanCreate(BaseModel):
     ai_provider: Optional[str] = None
     ai_model: Optional[str] = None
     ai_base_url: Optional[str] = None
+    project_id: Optional[int] = None
 
 
 class ScanResponse(BaseModel):
@@ -56,6 +57,7 @@ class ScanResponse(BaseModel):
     services_found: int
     findings_count: int
     settings: dict
+    project_id: Optional[int] = None
     # Progress tracking fields
     phase: Optional[str] = None
     progress_percentage: Optional[int] = 0
@@ -103,14 +105,34 @@ async def create_scan(
     # Expand targets to handle CIDR notation (e.g., 192.168.1.0/24)
     expanded_targets = expand_targets(scan_request.targets)
 
+    # Generate scan name and run_id if not provided
+    scan_name = scan_request.name
+    run_id_prefix = "web"
+
+    if not scan_name:
+        # Try to use project name as prefix
+        if scan_request.project_id:
+            project = db.query(Project).filter(Project.id == scan_request.project_id).first()
+            if project:
+                # Create a safe prefix from project name (remove special chars, limit length)
+                safe_prefix = ''.join(c for c in project.name if c.isalnum() or c in (' ', '-', '_'))
+                safe_prefix = safe_prefix.replace(' ', '-')[:30]
+                run_id_prefix = safe_prefix
+                scan_name = f"{safe_prefix}-{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}"
+
+        # Fallback to default naming if no project or project not found
+        if not scan_name:
+            scan_name = f"web-{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}"
+
     # Create scan record
     scan = Scan(
-        run_id=f"web-{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}",
-        name=scan_request.name,
+        run_id=f"{run_id_prefix}-{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}",
+        name=scan_name,
         status=ScanStatus.PENDING,
         preset=scan_request.preset,
         started_at=datetime.utcnow(),
         target_count=len(expanded_targets),
+        project_id=scan_request.project_id,
         settings={
             "ports": scan_request.ports,
             "host_conc": scan_request.host_conc,
@@ -136,6 +158,14 @@ async def create_scan(
 
     db.commit()
 
+    # Update project statistics if scan is associated with a project
+    if scan.project_id:
+        project = db.query(Project).filter(Project.id == scan.project_id).first()
+        if project:
+            project.total_scans = db.query(Scan).filter(Scan.project_id == scan.project_id).count()
+            project.updated_at = datetime.utcnow()
+            db.commit()
+
     # Queue scan execution using synchronous wrapper
     background_tasks.add_task(execute_scan_sync, scan.id)
 
@@ -147,6 +177,7 @@ async def list_scans(
     skip: int = 0,
     limit: int = 50,
     status: Optional[str] = None,
+    project_id: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -156,6 +187,7 @@ async def list_scans(
         skip: Number of scans to skip (pagination)
         limit: Maximum number of scans to return
         status: Filter by status
+        project_id: Filter by project ID
         db: Database session
 
     Returns:
@@ -165,6 +197,9 @@ async def list_scans(
 
     if status:
         query = query.filter(Scan.status == status)
+
+    if project_id is not None:
+        query = query.filter(Scan.project_id == project_id)
 
     scans = query.offset(skip).limit(limit).all()
     return scans
@@ -1246,8 +1281,10 @@ async def execute_scan(scan_id: int):
                 details=finding.details or {},
                 confidence=finding.confidence,
                 risk_score=finding.risk_score,
+                description=finding.description,
+                impact=finding.impact,
                 recommendation=finding.recommendation,
-                template_id=finding.template_id,
+                references=finding.references or [],
                 false_positive=False
             )
             db.add(db_finding)
@@ -1261,6 +1298,18 @@ async def execute_scan(scan_id: int):
         scan.services_found = len(discovered_services)
         scan.findings_count = len(discovered_findings)
         db.commit()
+
+        # Update project statistics if scan is associated with a project
+        if scan.project_id:
+            project = db.query(Project).filter(Project.id == scan.project_id).first()
+            if project:
+                # Recalculate all statistics for the project
+                all_findings = db.query(Finding).join(Scan).filter(Scan.project_id == scan.project_id).all()
+                project.total_findings = len(all_findings)
+                project.critical_findings = sum(1 for f in all_findings if f.severity == "CRITICAL")
+                project.high_findings = sum(1 for f in all_findings if f.severity == "HIGH")
+                project.updated_at = datetime.utcnow()
+                db.commit()
 
         logger.info(f"Scan {scan_id} completed: {len(discovered_services)} services, {len(discovered_findings)} findings, {scan.duration_seconds}s")
 

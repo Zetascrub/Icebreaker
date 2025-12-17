@@ -54,6 +54,69 @@ class InfoDisclosure:
         "Thumbs.db",
     ]
 
+    def _validate_file_content(self, path: str, content: str, content_type: str) -> bool:
+        """
+        Validate that the response actually contains the expected file content.
+
+        Args:
+            path: File path being checked
+            content: Response content
+            content_type: Content-Type header value
+
+        Returns:
+            True if content appears to be valid for this file type
+        """
+        content_lower = content.lower()
+
+        # Git files
+        if path.startswith(".git/"):
+            return "[core]" in content or "ref:" in content or "repositoryformatversion" in content_lower
+
+        # Environment files
+        if ".env" in path:
+            # Look for KEY=VALUE patterns common in .env files
+            return "=" in content and not "<html" in content_lower
+
+        # Backup archives
+        if path.endswith((".zip", ".tar.gz", ".sql")):
+            # Check content type or binary markers
+            return ("application/zip" in content_type or
+                    "application/x-gzip" in content_type or
+                    "application/sql" in content_type or
+                    "create table" in content_lower or
+                    "insert into" in content_lower)
+
+        # Config files (JSON, YAML, PHP, Python)
+        if path.endswith(".json"):
+            return (content.strip().startswith("{") or content.strip().startswith("[")) and not "<html" in content_lower
+
+        if path.endswith((".yml", ".yaml")):
+            return (":" in content and not "<html" in content_lower)
+
+        if path.endswith(".php"):
+            return "<?php" in content or "<?=" in content
+
+        if path.endswith(".py"):
+            return ("import " in content or "def " in content or "class " in content) and not "<html" in content_lower
+
+        # Package manager files
+        if path in ("composer.json", "package.json"):
+            return ('"name"' in content or '"dependencies"' in content) and content.strip().startswith("{")
+
+        if path in ("requirements.txt", "Gemfile"):
+            # Should have package names, no HTML
+            return not "<html" in content_lower and not "<center>200 ok</center>" in content_lower
+
+        if path in ("yarn.lock",):
+            return "# yarn lockfile" in content_lower or '"' in content
+
+        # Generic check: if it looks like HTML but shouldn't be, reject it
+        if path.endswith((".txt", ".lock", ".config", ".htaccess")):
+            return not "<html" in content_lower and not "<center>200 ok</center>" in content_lower
+
+        # For other files, accept if there's substantial content
+        return True
+
     async def run(self, ctx: RunContext, service: Service) -> List[Finding]:
         findings: List[Finding] = []
 
@@ -68,15 +131,44 @@ class InfoDisclosure:
             for path in self.SENSITIVE_PATHS:
                 try:
                     url = f"{base_url}/{path}"
-                    resp = await client.head(url)
+                    resp = await client.get(url)
 
-                    # Check if file exists (200, 403 means exists but forbidden)
-                    if resp.status_code in (200, 403):
-                        severity = "HIGH" if resp.status_code == 200 else "MEDIUM"
+                    # Only report if we get a valid response with actual content
+                    if resp.status_code == 200:
+                        content = resp.text
+                        content_length = len(content)
+
+                        # Skip if response is too small (likely generic error page)
+                        # Real files should be at least 100 bytes
+                        if content_length < 100:
+                            continue
+
+                        # Validate content based on file type
+                        is_valid = self._validate_file_content(path, content, resp.headers.get("content-type", ""))
+
+                        if is_valid:
+                            findings.append(Finding(
+                                id=f"info_disclosure.{path.replace('.', '_').replace('/', '_')}.{service.target}.{service.port}",
+                                title=f"Sensitive file exposed: {path}",
+                                severity="HIGH",
+                                target=service.target,
+                                port=service.port,
+                                tags=["http", "info-disclosure", "sensitive-files"],
+                                details={
+                                    "path": path,
+                                    "url": url,
+                                    "status": resp.status_code,
+                                    "content_length": content_length,
+                                    "content_type": resp.headers.get("content-type", ""),
+                                    "preview": content[:500] if content else ""
+                                }
+                            ))
+                    elif resp.status_code == 403:
+                        # 403 means file exists but is forbidden
                         findings.append(Finding(
-                            id=f"info_disclosure.{path.replace('.', '_').replace('/', '_')}.{service.target}.{service.port}",
-                            title=f"Sensitive file exposed: {path}",
-                            severity=severity,
+                            id=f"info_disclosure.{path.replace('.', '_').replace('/', '_')}.forbidden.{service.target}.{service.port}",
+                            title=f"Sensitive file exists (forbidden): {path}",
+                            severity="MEDIUM",
                             target=service.target,
                             port=service.port,
                             tags=["http", "info-disclosure", "sensitive-files"],

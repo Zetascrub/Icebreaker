@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from icebreaker.api.app import app
 from icebreaker.db.database import Base, engine, SessionLocal
-from icebreaker.db.models import Scan, Finding, FindingTemplate, ScanProfile
+from icebreaker.db.models import Scan, Finding, ScanProfile
 
 # Create test client
 client = TestClient(app)
@@ -60,12 +60,13 @@ def test_api_scans_create_and_retrieve(setup_database):
     assert response.status_code == 200
 
 
-def test_api_finding_templates_list(setup_database):
-    """Test listing finding templates."""
-    response = client.get("/api/finding-templates")
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
+# Removed - finding templates feature no longer exists
+# def test_api_finding_templates_list(setup_database):
+#     """Test listing finding templates."""
+#     response = client.get("/api/finding-templates")
+#     assert response.status_code == 200
+#     data = response.json()
+#     assert isinstance(data, list)
 
 
 def test_api_analytics_dashboard(setup_database):

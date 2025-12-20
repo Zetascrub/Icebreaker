@@ -134,12 +134,12 @@ async def get_dashboard_analytics(db: Session = Depends(get_db)) -> Dict[str, An
     max_possible_score = 100 * sum(risk_weights.values())
     normalized_risk_score = min(100, int((total_risk_score / max_possible_score) * 100))
 
-    # Compliance statistics (findings with compliance mappings)
-    findings_with_cwe = db.query(Finding).join(
-        Finding.template
-    ).filter(
+    # Compliance statistics (findings with CWE references)
+    # Note: template relationship removed - now using references field
+    findings_with_cwe = db.query(Finding).filter(
         Finding.false_positive == False,
-        Finding.template.has()
+        Finding.references != None,
+        Finding.references != '[]'
     ).count()
 
     return {

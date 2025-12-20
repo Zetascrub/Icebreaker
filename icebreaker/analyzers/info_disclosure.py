@@ -147,8 +147,10 @@ class InfoDisclosure:
                         is_valid = self._validate_file_content(path, content, resp.headers.get("content-type", ""))
 
                         if is_valid:
+                            import uuid
+                            unique_id = f"info_disclosure.{path.replace('.', '_').replace('/', '_')}.{service.target}.{service.port}.{uuid.uuid4().hex[:8]}"
                             findings.append(Finding(
-                                id=f"info_disclosure.{path.replace('.', '_').replace('/', '_')}.{service.target}.{service.port}",
+                                id=unique_id,
                                 title=f"Sensitive file exposed: {path}",
                                 severity="HIGH",
                                 target=service.target,
@@ -165,8 +167,10 @@ class InfoDisclosure:
                             ))
                     elif resp.status_code == 403:
                         # 403 means file exists but is forbidden
+                        import uuid
+                        unique_id = f"info_disclosure.{path.replace('.', '_').replace('/', '_')}.forbidden.{service.target}.{service.port}.{uuid.uuid4().hex[:8]}"
                         findings.append(Finding(
-                            id=f"info_disclosure.{path.replace('.', '_').replace('/', '_')}.forbidden.{service.target}.{service.port}",
+                            id=unique_id,
                             title=f"Sensitive file exists (forbidden): {path}",
                             severity="MEDIUM",
                             target=service.target,
@@ -192,8 +196,10 @@ class InfoDisclosure:
                     if ("index of" in content or
                         "<title>directory listing" in content or
                         "parent directory" in content):
+                        import uuid
+                        unique_id = f"info_disclosure.directory_listing.{service.target}.{service.port}.{uuid.uuid4().hex[:8]}"
                         findings.append(Finding(
-                            id=f"info_disclosure.directory_listing.{service.target}.{service.port}",
+                            id=unique_id,
                             title="Directory listing enabled",
                             severity="MEDIUM",
                             target=service.target,

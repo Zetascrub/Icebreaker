@@ -1085,34 +1085,10 @@ async def execute_scan(scan_id: int):
         else:
             logger.warning(f"Scan {scan_id}: ⚠ Port scanner MISSING 5555 and 9000!")
 
-        # Set up analyzers
-        analyzers = [
-            HTTPBasic(),
-            SecurityHeaders(),
-            TLSAnalyzer(),
-            InfoDisclosure(),
-        ]
-        if _HAS_SSH:
-            analyzers.append(SSHBanner())
-
-        # Add advanced analyzers
-        try:
-            from icebreaker.analyzers.ssl_cert import SSLCertAnalyzer
-            analyzers.append(SSLCertAnalyzer())
-        except Exception:
-            pass
-
-        try:
-            from icebreaker.analyzers.waf_cdn import WAFCDNDetector
-            analyzers.append(WAFCDNDetector())
-        except Exception:
-            pass
-
-        try:
-            from icebreaker.analyzers.api_discovery import APIDiscovery
-            analyzers.append(APIDiscovery())
-        except Exception:
-            pass
+        # Analyzers are now handled by the plugin system
+        # All built-in analyzers have been converted to plugins
+        # Users can enable/disable them via the web UI or API
+        analyzers = []  # Empty - plugins handle all analysis
 
         # Set up writers
         writers = [JSONLWriter(), MarkdownWriter(), SARIFWriter(), HTMLWriter()]
@@ -1220,7 +1196,11 @@ async def execute_scan(scan_id: int):
             stats = plugin_executor.get_stats()
             logger.info(f"Scan {scan_id}: Plugin stats - Executed: {stats['total_executed']}, Success: {stats['successful']}, Failed: {stats['failed']}, Findings: {stats['findings_generated']}")
 
-        # Phase 3: Analysis
+        # Phase 3: Analysis (now handled by plugins)
+        # Analysis is performed by the plugin system above
+        # discovered_findings from old analyzer system are no longer used
+        discovered_findings = []  # Empty - plugins already added findings to database
+
         scan.phase = "analysis"
         scan.progress_percentage = analysis_start
         db.commit()
@@ -1230,14 +1210,11 @@ async def execute_scan(scan_id: int):
             "data": {
                 "phase": "analysis",
                 "progress": analysis_start,
-                "message": f"Analyzing {len(discovered_services)} services..."
+                "message": f"Analysis complete via plugins..."
             }
         })
 
-        logger.info(f"Scan {scan_id}: Starting analysis with {len(analyzers)} analyzers")
-        discovered_findings = await orch.analyse(discovered_services)
-
-        logger.info(f"Scan {scan_id}: Analysis complete. Found {len(discovered_findings)} findings")
+        logger.info(f"Scan {scan_id}: Analysis handled by {stats['total_executed']} plugins")
 
         scan.progress_percentage = analysis_end
         db.commit()

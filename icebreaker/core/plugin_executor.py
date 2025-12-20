@@ -366,7 +366,7 @@ class PluginExecutor:
             recommendation=recommendation,
             details=details,
             tags=plugin.tags or [],
-            template_id=plugin.template_id,
+            # template_id removed - template system deprecated
             status='new',
             false_positive=False,
             first_seen=datetime.utcnow(),

@@ -188,10 +188,11 @@ async def project_detail_page(request: Request, project_id: int):
     return templates.TemplateResponse("project_detail.html", {"request": request, "project_id": project_id})
 
 
-@app.get("/import", response_class=HTMLResponse)
-async def import_page(request: Request):
-    """Template import page."""
-    return templates.TemplateResponse("import.html", {"request": request})
+# Removed - template import feature deprecated
+# @app.get("/import", response_class=HTMLResponse)
+# async def import_page(request: Request):
+#     """Template import page."""
+#     return templates.TemplateResponse("import.html", {"request": request})
 
 
 @app.get("/network-map", response_class=HTMLResponse)
@@ -254,7 +255,27 @@ if __name__ == "__main__":
 def main():
     """Entry point for icebreaker-web command."""
     import uvicorn
+    import logging
+
+    # Configure logging - set root logger to INFO level
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    # Set specific loggers to INFO
+    logging.getLogger("icebreaker").setLevel(logging.INFO)
+    logging.getLogger("icebreaker.api.routers.scans").setLevel(logging.INFO)
+    logging.getLogger("icebreaker.core.plugin_executor").setLevel(logging.INFO)
+
     print("🧊 Starting Icebreaker Web Interface...")
     print("📡 API Documentation: http://localhost:8000/docs")
     print("🌐 Dashboard: http://localhost:8000")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("🔍 Logging level: INFO (detailed execution logs enabled)")
+
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        log_level="info"
+    )

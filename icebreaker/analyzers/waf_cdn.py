@@ -52,8 +52,11 @@ class WAFCDNDetector:
                     impact = "Missing security headers increase the attack surface and make the application more vulnerable to various client-side attacks."
                     references = ["OWASP-A05:2021"]
 
+                import uuid
+                # Generate unique ID with UUID to prevent duplicates
+                unique_id = f"waf_cdn.{category}.{service.target}.{service.port}.{uuid.uuid4().hex[:8]}"
                 findings.append(Finding(
-                    id=f"waf_cdn.{category}.{service.target}.{service.port}",
+                    id=unique_id,
                     title=finding_dict["title"],
                     severity=finding_dict["severity"].upper(),
                     target=service.target,

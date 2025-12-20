@@ -126,8 +126,8 @@ async def list_all_findings(
             "risk_score": finding.risk_score,
             "details": finding.details,
             "scan_id": finding.scan_id,
-            "scan_name": scan.name if scan else None,
-            "template_id": finding.template_id
+            "scan_name": scan.name if scan else None
+            # "template_id": removed - finding templates no longer exist
         })
 
     return result

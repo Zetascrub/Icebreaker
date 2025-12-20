@@ -195,14 +195,25 @@ def import_nessus(
     """
     Import Nessus plugins from a tar archive.
 
+    NOTE: This feature is currently disabled as it requires the FindingTemplate model which has been removed.
+    Use the Plugin system instead for custom vulnerability checks.
+
     Example:
       icebreaker import nessus all-2.0.tar.gz
       icebreaker import nessus plugins.tar.gz --preview --sample 50
     """
+    console.print("[red]Error:[/red] Nessus plugin import is currently disabled.")
+    console.print("[yellow]Info:[/yellow] The FindingTemplate feature has been removed in favor of the Plugin system.")
+    console.print("[yellow]Hint:[/yellow] Use the web interface to create custom plugins or add them via the API.")
+    console.print("See docs/PLUGIN_SYSTEM.md for more information.")
+    raise typer.Exit(code=1)
+
+    # Disabled code below - kept for reference
+    """
     try:
         from icebreaker.importers.nasl_parser import NASLParser
         from icebreaker.db.database import SessionLocal, engine
-        from icebreaker.db.models import Base, FindingTemplate
+        from icebreaker.db.models import Base
     except ImportError as e:
         console.print(f"[red]Error:[/red] Missing dependencies: {e}")
         console.print("[yellow]Hint:[/yellow] Make sure the database and importer modules are available")

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(ls:*)",
+      "Bash(tree:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(grep:*)",
+      "Bash(docker exec:*)",
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker restart:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(1 --timestamps)",
+      "Bash(1 --tail 200)",
+      "Bash(1 --tail 300)",
+      "Bash(1 --tail 500)",
+      "Bash(docker-compose ps:*)",
+      "Bash(docker ps:*)"
+    ]
+  }
+}

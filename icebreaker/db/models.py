@@ -506,7 +506,7 @@ class Plugin(Base):
     code_file_path = Column(String(500), nullable=True)  # File path if code_type == "file"
 
     # Expected finding template (optional - for standardized findings)
-    template_id = Column(Integer, ForeignKey("finding_templates.id"), nullable=True, index=True)
+    # template_id = Column(Integer, ForeignKey("finding_templates.id"), nullable=True, index=True)  # Removed - table doesn't exist
 
     # Plugin metadata
     enabled = Column(Boolean, default=True, index=True)

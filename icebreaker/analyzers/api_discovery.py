@@ -30,12 +30,15 @@ class APIDiscovery:
         analyzer = APIDiscoveryAnalyzer()
 
         try:
+            import uuid
             use_https = service.name == "https" or service.port == 443
             result = analyzer.analyze(service.target, service.port, use_https)
 
             for finding_dict in result.get("findings", []):
+                # Generate unique ID with UUID to prevent duplicates
+                unique_id = f"api_discovery.{finding_dict.get('category', 'misc')}.{service.target}.{service.port}.{uuid.uuid4().hex[:8]}"
                 findings.append(Finding(
-                    id=f"api_discovery.{finding_dict.get('category', 'misc')}.{service.target}.{service.port}",
+                    id=unique_id,
                     title=finding_dict["title"],
                     severity=finding_dict["severity"].upper(),
                     target=service.target,

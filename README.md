@@ -222,7 +222,7 @@ icebreaker import nessus all-2.0.tar.gz
 - Duplicate detection and updates
 - Progress tracking for large imports
 
-**See [NESSUS_IMPORT.md](NESSUS_IMPORT.md) for detailed instructions.**
+**See [docs/NESSUS_IMPORT.md](docs/NESSUS_IMPORT.md) for detailed instructions.**
 
 ### 2. Vulnerability Database Integration
 
@@ -238,31 +238,45 @@ Icebreaker automatically matches discovered services with known CVEs from the Na
 # Results include CVE IDs, CVSS scores, and exploit information
 ```
 
-### 3. Custom Analyzer Plugins
+### 3. Plugin-Based Vulnerability Detection
 
-Extend Icebreaker with custom security checks using the plugin system:
+**All security checks run as plugins** - giving you full control over what runs during scans.
 
-**Creating a Plugin:**
-```python
-# icebreaker/plugins/my_plugin.py
-from icebreaker.core.plugin_system import AnalyzerPlugin
+**Built-in Analyzer Plugins:**
+- HTTP Basic Analyzer - Server headers, missing titles
+- Security Headers - CSP, X-Frame-Options, HSTS, etc.
+- TLS/SSL Analyzer - Weak protocols, expired certs
+- Information Disclosure - .git, .env, backups, configs
+- SSH Banner Analyzer - Version detection, outdated servers
 
-class MyCustomPlugin(AnalyzerPlugin):
-    name = "my_custom_analyzer"
-    description = "Custom security checks"
-    version = "1.0.0"
-    author = "Your Name"
-
-    async def analyze(self, target, port, service, banner=""):
-        findings = []
-        # Your analysis logic here
-        return findings
+**First-Time Setup:**
+```bash
+# Seed built-in analyzer plugins (one-time)
+docker exec icebreaker-web python -m icebreaker.db.seed_analyzer_plugins
 ```
 
-**Plugin Discovery:**
-- Built-in plugins: `icebreaker/plugins/`
-- User plugins: `./plugins/` or `/data/plugins/` (Docker)
-- Plugins are auto-loaded on startup
+**Manage Plugins via Web UI:**
+- Enable/disable any analyzer at http://localhost:8000/plugins
+- Customize analyzer behavior by editing plugin code
+- Create custom analyzers specific to your environment
+
+**Create Custom Plugin via API:**
+```bash
+curl -X POST http://localhost:8000/api/plugins \
+  -H "Content-Type: application/json" \
+  -d '{
+    "plugin_id": "CUSTOM-001",
+    "name": "My Custom Analyzer",
+    "description": "Custom vulnerability check",
+    "target_services": ["http", "https"],
+    "code_type": "inline",
+    "code": "# Your Python code here",
+    "enabled": true,
+    "severity": "MEDIUM"
+  }'
+```
+
+**See [PLUGIN_MIGRATION.md](PLUGIN_MIGRATION.md) for the migration guide and [docs/PLUGIN_SYSTEM.md](docs/PLUGIN_SYSTEM.md) for detailed documentation.**
 
 ### 4. Advanced Detection Analyzers
 

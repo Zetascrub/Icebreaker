@@ -59,8 +59,11 @@ class SSLCertAnalyzer:
                     impact = "Small key sizes can be broken with sufficient computing power, allowing attackers to decrypt traffic or forge certificates. Modern standards require at least 2048-bit RSA keys."
                     references = ["CWE-326", "NIST-SP-800-57"]
 
+                import uuid
+                # Generate unique ID with UUID to prevent duplicates
+                unique_id = f"ssl_cert.{finding_dict.get('category', 'misc')}.{service.target}.{service.port}.{uuid.uuid4().hex[:8]}"
                 findings.append(Finding(
-                    id=f"ssl_cert.{finding_dict.get('category', 'misc')}.{service.target}.{service.port}",
+                    id=unique_id,
                     title=finding_dict["title"],
                     severity=finding_dict["severity"].upper(),
                     target=service.target,

@@ -114,7 +114,7 @@ async def get_plugin(plugin_id: int, db: Session = Depends(get_db)):
         'code_type': plugin.code_type,
         'code': plugin.code,
         'code_file_path': plugin.code_file_path,
-        'template_id': plugin.template_id,
+        # 'template_id': removed - finding templates no longer exist
         'enabled': plugin.enabled,
         'severity': plugin.severity,
         'tags': plugin.tags,
@@ -153,7 +153,7 @@ async def create_plugin(plugin: PluginCreate, db: Session = Depends(get_db)):
         code_type=plugin.code_type,
         code=plugin.code,
         code_file_path=plugin.code_file_path,
-        template_id=plugin.template_id,
+        # template_id removed - finding templates no longer exist
         enabled=plugin.enabled,
         severity=plugin.severity,
         tags=plugin.tags,
@@ -200,8 +200,7 @@ async def update_plugin(plugin_id: int, plugin: PluginUpdate, db: Session = Depe
         existing.code = plugin.code
     if plugin.code_file_path is not None:
         existing.code_file_path = plugin.code_file_path
-    if plugin.template_id is not None:
-        existing.template_id = plugin.template_id
+    # template_id removed - finding templates no longer exist
     if plugin.enabled is not None:
         existing.enabled = plugin.enabled
     if plugin.severity is not None:

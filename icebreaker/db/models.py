@@ -526,3 +526,55 @@ class Plugin(Base):
     def __repr__(self):
         return f"<Plugin(id={self.id}, plugin_id={self.plugin_id}, name={self.name})>"
 
+
+class NessusPlugin(Base):
+    """
+    Imported Nessus plugin metadata for vulnerability matching.
+
+    Populated by 'icebreaker import nessus'. During scans, the NASLAnalyzer
+    queries this table to match discovered services/banners/versions against
+    known vulnerability checks and generate findings.
+    """
+    __tablename__ = "nessus_plugins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nessus_id = Column(Integer, unique=True, nullable=False, index=True)
+    name = Column(String(500), nullable=False, index=True)
+    family = Column(String(200), nullable=True, index=True)
+    plugin_type = Column(String(20), nullable=True, index=True)  # remote/local/combined
+    category = Column(String(50), nullable=True)                 # ACT_GATHER_INFO, ACT_ATTACK, etc.
+    severity = Column(String(20), default="INFO", index=True)
+
+    # CVSS scoring
+    cvss_base_score = Column(Float, nullable=True)
+    cvss3_base_score = Column(Float, nullable=True)
+    cvss_vector = Column(String(300), nullable=True)
+    cvss3_vector = Column(String(300), nullable=True)
+
+    # Vulnerability references
+    cve_ids = Column(JSON, default=list)   # ["CVE-2024-1234", ...]
+    cwe_id = Column(String(50), nullable=True)
+
+    # Content
+    description = Column(Text, nullable=True)
+    solution = Column(Text, nullable=True)
+    synopsis = Column(Text, nullable=True)
+    see_also = Column(JSON, default=list)  # list of reference URLs
+
+    # Matching criteria — used by NASLAnalyzer to find applicable plugins
+    cpe_list = Column(JSON, default=list)             # ["cpe:/a:apache:httpd", ...]
+    required_ports = Column(JSON, default=list)       # [21, 80, 443]
+    required_services = Column(JSON, default=list)    # ["ftp", "http", "smtp"]
+    required_keys = Column(JSON, default=list)        # ["installed_sw/Apache", ...]
+    banner_patterns = Column(JSON, default=list)      # [{"pattern": "regex", "flags": "i"}, ...]
+    version_constraints = Column(JSON, default=list)  # [{"min_version": "x", "max_version": "y", "fixed_version": "z"}, ...]
+
+    # Metadata
+    plugin_publication_date = Column(String(50), nullable=True)
+    plugin_modification_date = Column(String(50), nullable=True)
+    enabled = Column(Boolean, default=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<NessusPlugin(nessus_id={self.nessus_id}, name={self.name[:40]})>"
+

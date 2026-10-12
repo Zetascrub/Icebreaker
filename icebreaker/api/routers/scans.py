@@ -802,6 +802,10 @@ async def execute_scan(scan_id: int):
     from icebreaker.analyzers.security_headers import SecurityHeaders
     from icebreaker.analyzers.tls_analyzer import TLSAnalyzer
     from icebreaker.analyzers.info_disclosure import InfoDisclosure
+    from icebreaker.analyzers.dns import DNSAnalyzer
+    from icebreaker.analyzers.api_discovery import APIDiscovery
+    from icebreaker.analyzers.waf_cdn import WAFCDNDetector
+    from icebreaker.analyzers.smb_analyzer import SMBAnalyzer
     from icebreaker.writers.jsonl import JSONLWriter
     from icebreaker.writers.markdown import MarkdownWriter
     from icebreaker.writers.sarif import SARIFWriter
@@ -812,6 +816,12 @@ async def execute_scan(scan_id: int):
         _HAS_SSH = True
     except Exception:
         _HAS_SSH = False
+
+    try:
+        from icebreaker.analyzers.nasl_analyzer import NASLAnalyzer
+        _HAS_NASL = True
+    except Exception:
+        _HAS_NASL = False
 
     try:
         from icebreaker.writers.ai_summary import AISummaryWriter
@@ -1043,11 +1053,17 @@ async def execute_scan(scan_id: int):
         if use_nmap:
             try:
                 from icebreaker.detectors.nmap_probe import NmapProbe
+                import os as _os
+                # SYN scan (-sS) requires root; fall back to TCP connect (-sT) otherwise.
+                # -sV enables service/version detection so nmap reports CPE strings that
+                # the NASLAnalyzer uses to match vulnerability plugins accurately.
+                _base = "-sS" if _os.geteuid() == 0 else "-sT"
+                _nmap_args = f"{_base} -T4"
                 port_scanner = NmapProbe(
                     timeout=timeout,
                     quiet=True,
                     ports=port_list,
-                    scan_arguments="-sS -T4",  # SYN scan, aggressive timing
+                    scan_arguments=_nmap_args,
                     progress_callback=port_scan_progress_callback
                 )
             except Exception as e:
@@ -1085,10 +1101,28 @@ async def execute_scan(scan_id: int):
         else:
             logger.warning(f"Scan {scan_id}: ⚠ Port scanner MISSING 5555 and 9000!")
 
-        # Analyzers are now handled by the plugin system
-        # All built-in analyzers have been converted to plugins
-        # Users can enable/disable them via the web UI or API
-        analyzers = []  # Empty - plugins handle all analysis
+        # Built-in analyzers
+        analyzers = [
+            HTTPBasic(),
+            SecurityHeaders(),
+            TLSAnalyzer(),
+            InfoDisclosure(),
+            SMBAnalyzer(),
+            DNSAnalyzer(),
+            APIDiscovery(),
+            WAFCDNDetector(),
+        ]
+        if _HAS_SSH:
+            analyzers.append(SSHBanner())
+        if _HAS_NASL:
+            import os as _os2
+            _nasl_db = "/data/icebreaker.db" if _os2.path.exists("/data") else "./icebreaker.db"
+            try:
+                _nasl = NASLAnalyzer(db_path=_nasl_db)
+                if _nasl.plugin_count() > 0:
+                    analyzers.append(_nasl)
+            except Exception:
+                pass
 
         # Set up writers
         writers = [JSONLWriter(), MarkdownWriter(), SARIFWriter(), HTMLWriter()]
@@ -1196,11 +1230,7 @@ async def execute_scan(scan_id: int):
             stats = plugin_executor.get_stats()
             logger.info(f"Scan {scan_id}: Plugin stats - Executed: {stats['total_executed']}, Success: {stats['successful']}, Failed: {stats['failed']}, Findings: {stats['findings_generated']}")
 
-        # Phase 3: Analysis (now handled by plugins)
-        # Analysis is performed by the plugin system above
-        # discovered_findings from old analyzer system are no longer used
-        discovered_findings = []  # Empty - plugins already added findings to database
-
+        # Phase 3: Analysis
         scan.phase = "analysis"
         scan.progress_percentage = analysis_start
         db.commit()
@@ -1210,11 +1240,12 @@ async def execute_scan(scan_id: int):
             "data": {
                 "phase": "analysis",
                 "progress": analysis_start,
-                "message": f"Analysis complete via plugins..."
+                "message": f"Analysing {len(discovered_services)} services..."
             }
         })
 
-        logger.info(f"Scan {scan_id}: Analysis handled by {stats['total_executed']} plugins")
+        discovered_findings = await orch.analyse(discovered_services)
+        logger.info(f"Scan {scan_id}: Analyzers produced {len(discovered_findings)} findings")
 
         scan.progress_percentage = analysis_end
         db.commit()
@@ -1246,10 +1277,12 @@ async def execute_scan(scan_id: int):
             db.add(db_service)
 
         # Store findings in database
+        # finding.id is derived from target/port/type and is identical across scans,
+        # so prefix with scan_id to satisfy the UNIQUE constraint on finding_id.
         for finding in discovered_findings:
             db_finding = Finding(
                 scan_id=scan.id,
-                finding_id=finding.id,
+                finding_id=f"{scan.id}.{finding.id}",
                 title=finding.title,
                 severity=finding.severity,
                 target=finding.target,
@@ -1273,7 +1306,8 @@ async def execute_scan(scan_id: int):
         scan.completed_at = datetime.utcnow()
         scan.duration_seconds = int((scan.completed_at - scan.started_at).total_seconds())
         scan.services_found = len(discovered_services)
-        scan.findings_count = len(discovered_findings)
+        # Count both analyzer findings (stored below) and plugin findings (already in DB)
+        scan.findings_count = len(discovered_findings) + len(plugin_findings)
         db.commit()
 
         # Update project statistics if scan is associated with a project

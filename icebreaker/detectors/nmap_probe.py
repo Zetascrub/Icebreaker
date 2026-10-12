@@ -17,6 +17,83 @@ from icebreaker.core.models import RunContext, Service, Target
 console = Console()
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# CPE synthesis — nmap -sV reports product/version but often omits <cpe> XML
+# elements for common software.  This table maps nmap product strings to their
+# CPE vendor:product components so we can construct a usable CPE URI.
+# ---------------------------------------------------------------------------
+_PRODUCT_TO_CPE: dict[str, tuple[str, str]] = {
+    # Web servers
+    "apache httpd":          ("apache",       "http_server"),
+    "apache http server":    ("apache",       "http_server"),
+    "nginx":                 ("nginx",        "nginx"),
+    "microsoft iis httpd":   ("microsoft",    "internet_information_server"),
+    "lighttpd":              ("lighttpd",     "lighttpd"),
+    "cherokee httpd":        ("cherokee-project", "cherokee"),
+    # App servers
+    "apache tomcat":         ("apache",       "tomcat"),
+    "jetty":                 ("eclipse",      "jetty"),
+    # SSH
+    "openssh":               ("openbsd",      "openssh"),
+    # FTP
+    "vsftpd":                ("vsftpd_project", "vsftpd"),
+    "proftpd":               ("proftpd",      "proftpd"),
+    "pure-ftpd":             ("pureftpd",     "pure-ftpd"),
+    "filezilla server":      ("filezilla-project", "filezilla_server"),
+    # Mail
+    "postfix smtpd":         ("postfix",      "postfix"),
+    "postfix":               ("postfix",      "postfix"),
+    "exim smtpd":            ("exim",         "exim"),
+    "sendmail":              ("sendmail",     "sendmail"),
+    "dovecot imapd":         ("dovecot",      "dovecot"),
+    "dovecot pop3d":         ("dovecot",      "dovecot"),
+    # Databases
+    "mysql":                 ("oracle",       "mysql"),
+    "mariadb":               ("mariadb",      "mariadb"),
+    "postgresql":            ("postgresql",   "postgresql"),
+    "microsoft sql server":  ("microsoft",    "sql_server"),
+    "mongodb":               ("mongodb",      "mongodb"),
+    "redis":                 ("redis",        "redis"),
+    # Printing
+    "cups":                  ("openprinting", "cups"),
+    # Other
+    "openssl":               ("openssl",      "openssl"),
+    "samba smbd":            ("samba",        "samba"),
+    "samba":                 ("samba",        "samba"),
+    "vnc":                   ("realvnc",      "vnc"),
+}
+
+# nmap service names that map to canonical names used by analyzers
+_CANONICAL_SERVICE_NAME: dict[str, str] = {
+    "http-alt":   "http",
+    "http-proxy": "http",
+    "www":        "http",
+    "https-alt":  "https",
+    "ssl/http":   "https",
+}
+
+
+def _synthesise_cpe(product: str, version: str) -> str | None:
+    """
+    Return a CPE 2.2 URI for *product*/*version* using the lookup table, or
+    None if the product is not recognised.
+    """
+    key = product.lower().strip()
+    entry = _PRODUCT_TO_CPE.get(key)
+    if entry is None:
+        # Try prefix match for product strings like "Apache httpd 2.4.58 (Ubuntu)"
+        for k, v in _PRODUCT_TO_CPE.items():
+            if key.startswith(k):
+                entry = v
+                break
+    if entry is None:
+        return None
+    vendor, prod = entry
+    ver = version.strip() if version else ""
+    if ver:
+        return f"cpe:/a:{vendor}:{prod}:{ver}"
+    return f"cpe:/a:{vendor}:{prod}"
+
 
 class NmapProbe:
     """
@@ -50,6 +127,12 @@ class NmapProbe:
         self.quiet = quiet
         self.scan_arguments = scan_arguments
         self.progress_callback = progress_callback
+        # Effective per-host timeout for nmap.
+        # Use at least 60 s for small port lists, scaling to 300 s for
+        # large lists (e.g. top-1000).  This prevents nmap from timing out
+        # the host on slow-to-respond services like SMB or Nessus.
+        n = len(self.ports) if self.ports else 100
+        self._host_timeout = min(300, max(60, n))
 
         # Check if nmap is available
         self._nmap_available = self._check_nmap()
@@ -152,7 +235,7 @@ class NmapProbe:
             cmd = [
                 "nmap",
                 "-p", port_spec,
-                "--host-timeout", f"{int(self.timeout)}s",
+                "--host-timeout", f"{self._host_timeout}s",
                 "-oX", "-",  # Output XML to stdout
                 "-iL", target_file,  # Read targets from file
             ]
@@ -167,7 +250,7 @@ class NmapProbe:
             cmd = [
                 "nmap",
                 "-p", port_spec,
-                "--host-timeout", f"{int(self.timeout)}s",
+                "--host-timeout", f"{self._host_timeout}s",
                 "-oX", "-",  # Output XML to stdout
             ]
 
@@ -223,15 +306,41 @@ class NmapProbe:
                             # Get service info
                             service_elem = port_elem.find("service")
                             service_name = "unknown"
+                            svc_meta: dict = {}
                             if service_elem is not None:
-                                service_name = service_elem.get("name", "unknown")
+                                raw_name = service_elem.get("name", "unknown")
+                                service_name = _CANONICAL_SERVICE_NAME.get(raw_name, raw_name)
+                                product  = service_elem.get("product", "")
+                                version  = service_elem.get("version", "")
+                                extrainfo = service_elem.get("extrainfo", "")
+                                # Build a banner string from nmap's version detection (-sV)
+                                banner_parts = [p for p in (product, version, extrainfo) if p]
+                                banner = " ".join(banner_parts)
+                                if banner:
+                                    svc_meta["banner"]  = banner
+                                    svc_meta["version"] = version
+                                # Collect CPE strings emitted by -sV
+                                cpes = [
+                                    cpe_elem.get("item", "")
+                                    for cpe_elem in service_elem.findall("cpe")
+                                    if cpe_elem.get("item")
+                                ]
+                                # nmap -sV often knows the product/version but omits CPE
+                                # entries for common software.  Synthesise a CPE from the
+                                # product name so that NASL plugins can match by CPE.
+                                if not cpes and product and version:
+                                    synthesised = _synthesise_cpe(product, version)
+                                    if synthesised:
+                                        cpes = [synthesised]
+                                if cpes:
+                                    svc_meta["cpe"] = cpes
 
                             # Create service
                             svc = Service(
                                 target=host_addr,
                                 port=port_num,
                                 name=service_name,
-                                meta={}
+                                meta=svc_meta,
                             )
                             services.append(svc)
 

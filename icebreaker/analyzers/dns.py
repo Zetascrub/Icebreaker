@@ -7,14 +7,58 @@ import dns.resolver
 import dns.reversename
 from typing import List, Dict, Any
 
+from icebreaker.core.models import Finding, RunContext, Service
+
 
 class DNSAnalyzer:
     """Analyzer for DNS reconnaissance."""
+
+    id = "dns"
+    # Only run DNS recon once per target — attach to the first HTTP/HTTPS service
+    # we encounter (port 80 or 443); skip all others to avoid repeated lookups.
+    consumes = ["service:http", "service:https"]
 
     def __init__(self):
         self.resolver = dns.resolver.Resolver()
         self.resolver.timeout = 3
         self.resolver.lifetime = 3
+        self._seen_targets: set = set()
+
+    async def run(self, ctx: RunContext, service: Service) -> List[Finding]:
+        """Run DNS recon on the service target, once per unique hostname."""
+        target = service.target
+
+        # Skip IP addresses — DNS recon is only meaningful for hostnames
+        try:
+            socket.inet_aton(target)
+            return []  # target is an IPv4 address
+        except socket.error:
+            pass
+
+        # Only run once per target hostname to avoid duplicate findings
+        if target in self._seen_targets:
+            return []
+        self._seen_targets.add(target)
+
+        dns_data = self.analyze(target)
+        findings: List[Finding] = []
+
+        import uuid
+        for finding_dict in dns_data.get("findings", []):
+            sev = finding_dict.get("severity", "info").upper()
+            uid = uuid.uuid4().hex[:8]
+            findings.append(Finding(
+                id=f"dns.{finding_dict.get('category', 'dns')}.{target}.{uid}",
+                title=finding_dict["title"],
+                severity=sev,
+                target=target,
+                port=service.port,
+                tags=["dns", finding_dict.get("category", "dns")],
+                description=finding_dict.get("description", ""),
+                recommendation=finding_dict.get("recommendation"),
+            ))
+
+        return findings
 
     def analyze(self, target: str) -> Dict[str, Any]:
         """

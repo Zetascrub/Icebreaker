@@ -75,3 +75,8 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# SQLite temp files
+*.db-shm
+*.db-wal
+tmp/

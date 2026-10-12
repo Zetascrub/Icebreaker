@@ -25,6 +25,13 @@ class WAFCDNDetector:
             List of findings
         """
         findings = []
+
+        # WAF/CDN detection is meaningless for loopback and private-localhost
+        # addresses — no real WAF sits in front of 127.x or ::1.
+        _target = service.target.lower()
+        if _target in ("localhost", "127.0.0.1", "::1") or _target.startswith("127."):
+            return findings
+
         analyzer = WAFCDNAnalyzer()
 
         try:

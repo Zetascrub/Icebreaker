@@ -53,13 +53,13 @@ async def export_findings_csv(scan_id: int, db: Session = Depends(get_db)):
             finding.risk_score or '',
             'Yes' if finding.false_positive else 'No',
             ', '.join(finding.tags) if finding.tags else '',
-            finding.template.cwe_id if finding.template else '',
-            finding.template.owasp_2021 if finding.template else '',
-            finding.template.pci_dss if finding.template else '',
-            finding.template.nist_csf if finding.template else '',
-            finding.template.description if finding.template else '',
-            finding.template.impact if finding.template else '',
-            finding.template.remediation if finding.template else ''
+            (finding.details or {}).get('cwe_id', ''),
+            '',
+            '',
+            '',
+            finding.description or '',
+            finding.impact or '',
+            finding.recommendation or ''
         ])
 
     # Return CSV file
@@ -140,17 +140,11 @@ async def export_findings_json(scan_id: int, db: Session = Depends(get_db)):
                 "tags": f.tags,
                 "details": f.details,
                 "recommendation": f.recommendation,
-                "template": {
-                    "cwe_id": f.template.cwe_id if f.template else None,
-                    "owasp_2021": f.template.owasp_2021 if f.template else None,
-                    "pci_dss": f.template.pci_dss if f.template else None,
-                    "nist_csf": f.template.nist_csf if f.template else None,
-                    "cvss_score": f.template.cvss_score if f.template else None,
-                    "cvss_vector": f.template.cvss_vector if f.template else None,
-                    "description": f.template.description if f.template else None,
-                    "impact": f.template.impact if f.template else None,
-                    "remediation": f.template.remediation if f.template else None,
-                } if f.template else None,
+                "cwe_id": (f.details or {}).get('cwe_id'),
+                "cvss_score": (f.details or {}).get('cvss3_base_score') or (f.details or {}).get('cvss_base_score'),
+                "description": f.description,
+                "impact": f.impact,
+                "remediation": f.recommendation,
                 "created_at": f.created_at.isoformat(),
                 "updated_at": f.updated_at.isoformat()
             }
@@ -218,41 +212,36 @@ async def export_findings_sarif(scan_id: int, db: Session = Depends(get_db)):
         ]
     }
 
-    # Collect unique finding types for rules
-    finding_templates = {}
+    # Build deduplicated rules from findings themselves
+    seen_rules: set = set()
     for finding in findings:
-        if finding.finding_id not in finding_templates and finding.template:
-            finding_templates[finding.finding_id] = finding.template
-
-    # Add rules (finding templates)
-    for finding_id, template in finding_templates.items():
+        if finding.finding_id in seen_rules:
+            continue
+        seen_rules.add(finding.finding_id)
+        details = finding.details or {}
         rule = {
-            "id": finding_id,
-            "name": template.title,
-            "shortDescription": {
-                "text": template.title
-            },
-            "fullDescription": {
-                "text": template.description
-            },
+            "id": finding.finding_id,
+            "name": finding.title,
+            "shortDescription": {"text": finding.title},
+            "fullDescription": {"text": finding.description or finding.title},
             "help": {
-                "text": template.remediation,
-                "markdown": f"**Impact:**\n{template.impact}\n\n**Remediation:**\n{template.remediation}"
+                "text": finding.recommendation or "",
+                "markdown": (
+                    f"**Impact:**\n{finding.impact or ''}\n\n"
+                    f"**Remediation:**\n{finding.recommendation or ''}"
+                ),
             },
             "properties": {
-                "tags": template.tags if template.tags else [],
-                "precision": "high" if template.severity in ['CRITICAL', 'HIGH'] else "medium"
-            }
+                "tags": finding.tags or [],
+                "precision": "high" if finding.severity in ("CRITICAL", "HIGH") else "medium",
+            },
         }
-
-        # Add compliance mappings
-        if template.cwe_id:
-            rule["properties"]["cwe"] = template.cwe_id
-        if template.owasp_2021:
-            rule["properties"]["owasp"] = template.owasp_2021
-        if template.cvss_score:
-            rule["properties"]["cvss_score"] = template.cvss_score
-
+        cwe = details.get("cwe_id")
+        cvss = details.get("cvss3_base_score") or details.get("cvss_base_score")
+        if cwe:
+            rule["properties"]["cwe"] = cwe
+        if cvss:
+            rule["properties"]["cvss_score"] = cvss
         sarif_output["runs"][0]["tool"]["driver"]["rules"].append(rule)
 
     # Add results (actual findings)

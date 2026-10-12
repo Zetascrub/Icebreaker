@@ -186,6 +186,53 @@ class InfoDisclosure:
                     # Connection errors, timeouts - skip this path
                     continue
 
+        # Check for Apache mod_status / server-status information disclosure
+        # (mirrors Nessus plugin 10677 "Apache mod_status /server-status accessible")
+        for status_path in ("/server-status", "/server-status?auto"):
+            try:
+                async with httpx.AsyncClient(timeout=2.0, verify=False, follow_redirects=False) as client:
+                    url = f"{base_url}{status_path}"
+                    resp = await client.get(url)
+                    if resp.status_code == 200:
+                        content = resp.text
+                        # Validate it's actually mod_status output, not a custom 200 page
+                        is_mod_status = (
+                            "ServerVersion" in content or
+                            "Total Accesses" in content or
+                            "Total kBytes" in content or
+                            "Uptime" in content and "BusyWorkers" in content or
+                            "Apache Server Status" in content
+                        )
+                        if is_mod_status:
+                            findings.append(Finding(
+                                id=f"info_disclosure.mod_status.{service.target}.{service.port}",
+                                title="Apache mod_status /server-status Information Disclosure",
+                                severity="MEDIUM",
+                                target=service.target,
+                                port=service.port,
+                                tags=["http", "info-disclosure", "apache", "mod_status"],
+                                description=(
+                                    f"The Apache server-status page is accessible at {url}. "
+                                    "It discloses server version, uptime, active worker counts, "
+                                    "current request URLs, and client IP addresses."
+                                ),
+                                impact=(
+                                    "Exposes detailed server internals to unauthenticated users. "
+                                    "Attackers can enumerate internal URLs, client IPs, and worker "
+                                    "activity to inform further attacks."
+                                ),
+                                recommendation=(
+                                    "Restrict access to /server-status using an Allow/Deny directive or "
+                                    "require authentication. In Apache config: "
+                                    "<Location /server-status> Require local </Location>"
+                                ),
+                                references=["CVE-2001-0131", "CWE-200"],
+                                details={"url": url, "preview": content[:500]},
+                            ))
+                            break  # Don't report twice for both paths
+            except Exception:
+                pass
+
         # Check for directory listing on root
         try:
             async with httpx.AsyncClient(timeout=2.0, verify=False, follow_redirects=False) as client:

@@ -152,6 +152,53 @@ def apply_migrations():
             conn.commit()
             print("✅ Screenshots table migration completed!")
 
+        # Migration: Create nessus_plugins table
+        cursor.execute("""
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name='nessus_plugins'
+        """)
+        if not cursor.fetchone():
+            print("🔄 Applying migration: Creating nessus_plugins table...")
+            cursor.execute("""
+                CREATE TABLE nessus_plugins (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    nessus_id INTEGER NOT NULL UNIQUE,
+                    name VARCHAR(500) NOT NULL,
+                    family VARCHAR(200),
+                    plugin_type VARCHAR(20),
+                    category VARCHAR(50),
+                    severity VARCHAR(20) DEFAULT 'INFO',
+                    cvss_base_score REAL,
+                    cvss3_base_score REAL,
+                    cvss_vector VARCHAR(300),
+                    cvss3_vector VARCHAR(300),
+                    cve_ids JSON,
+                    cwe_id VARCHAR(50),
+                    description TEXT,
+                    solution TEXT,
+                    synopsis TEXT,
+                    see_also JSON,
+                    cpe_list JSON,
+                    required_ports JSON,
+                    required_services JSON,
+                    required_keys JSON,
+                    banner_patterns JSON,
+                    version_constraints JSON,
+                    plugin_publication_date VARCHAR(50),
+                    plugin_modification_date VARCHAR(50),
+                    enabled BOOLEAN DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cursor.execute("CREATE INDEX ix_nessus_plugins_nessus_id ON nessus_plugins (nessus_id)")
+            cursor.execute("CREATE INDEX ix_nessus_plugins_name ON nessus_plugins (name)")
+            cursor.execute("CREATE INDEX ix_nessus_plugins_family ON nessus_plugins (family)")
+            cursor.execute("CREATE INDEX ix_nessus_plugins_plugin_type ON nessus_plugins (plugin_type)")
+            cursor.execute("CREATE INDEX ix_nessus_plugins_severity ON nessus_plugins (severity)")
+            cursor.execute("CREATE INDEX ix_nessus_plugins_enabled ON nessus_plugins (enabled)")
+            conn.commit()
+            print("✅ nessus_plugins table migration completed!")
+
         conn.close()
     except Exception as e:
         print(f"⚠️  Migration warning: {e}")

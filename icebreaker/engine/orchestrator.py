@@ -44,15 +44,39 @@ class Orchestrator:
             discovered = await det.run(self.ctx, targets)
             services.extend(discovered)
 
-        # De-duplicate by (target, port, name) and merge banner/meta details
-        dedup: Dict[Tuple[str, int, str], Service] = {}
+        # Normalise target addresses so that "localhost" and "127.0.0.1" (or any
+        # other alias for the same host) dedup to a single service entry.
+        # We use a simple lookup table built from the original scan targets so
+        # that nmap's resolved IP (e.g. "127.0.0.1") maps back to the original
+        # hostname ("localhost") used by BannerGrab.
+        addr_to_original: Dict[str, str] = {}
+        import socket
+        for t in targets:
+            try:
+                resolved = socket.gethostbyname(t.address)
+                addr_to_original[resolved] = t.address
+                addr_to_original[t.address] = t.address  # identity mapping
+            except Exception:
+                addr_to_original[t.address] = t.address
+
         for svc in services:
-            key = (svc.target, svc.port, svc.name or "unknown")
+            svc.target = addr_to_original.get(svc.target, svc.target)
+
+        # De-duplicate by (target, port) — nmap and BannerGrab may assign different
+        # service names to the same port (e.g. "http-alt" vs "http"); merge them
+        # into one entry, preferring the richer/more-specific name and meta.
+        dedup: Dict[Tuple[str, int], Service] = {}
+        for svc in services:
+            key = (svc.target, svc.port)
             if key not in dedup:
                 dedup[key] = svc
             else:
-                # Keep existing object; merge any truthy fields from the later entry
-                dedup[key].meta.update({k: v for (k, v) in (svc.meta or {}).items() if v})
+                existing = dedup[key]
+                # Prefer a specific service name over "unknown"
+                if existing.name in (None, "unknown") and svc.name not in (None, "unknown"):
+                    existing.name = svc.name
+                # Merge meta: later values overwrite only if truthy
+                existing.meta.update({k: v for (k, v) in (svc.meta or {}).items() if v})
 
         services = list(dedup.values())
 
